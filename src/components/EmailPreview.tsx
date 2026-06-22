@@ -209,7 +209,7 @@ export default function EmailPreview({
                       <th className="p-2 text-center">Funded</th>
                       <th className="p-2 text-center">Deals</th>
                       <th className="p-2 text-center">Attach</th>
-                      <th className="p-2 text-center font-bold">Progress</th>
+                      <th className="p-2 text-center font-bold">Progress (pp)</th>
                     </tr>
                   </thead>
                   <tbody>
