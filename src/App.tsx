@@ -1,0 +1,671 @@
+import { useState, useEffect } from "react";
+import { 
+  FileText, 
+  TrendingUp, 
+  Clipboard, 
+  Check, 
+  RotateCcw, 
+  HelpCircle, 
+  Globe, 
+  ChevronRight, 
+  Sliders, 
+  Sparkles, 
+  Info,
+  Calendar,
+  AlertCircle
+} from "lucide-react";
+import { MonthlyRow, QuarterlyRow } from "./types";
+import { REGIONS_LIST, DEFAULT_REGION, getGeneratedSampleDataForRegion } from "./sampleData";
+import UploadWizard from "./components/UploadWizard";
+import EditableTable from "./components/EditableTable";
+import EmailPreview from "./components/EmailPreview";
+import { generateEmailHTML } from "./utils/exporter";
+
+export default function App() {
+  // Region Selection State
+  const [selectedRegion, setSelectedRegion] = useState<string>(DEFAULT_REGION);
+
+  // Core Parsed/Editable Data Sets
+  const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
+  const [quarterlyRows, setQuarterlyRows] = useState<QuarterlyRow[]>([]);
+
+  // Metadata Text Fields (user customizable)
+  const [reportingPeriod, setReportingPeriod] = useState<string>("April 2026");
+  const [tagline, setTagline] = useState<string>(
+    "Results trending ahead of plan on path to exceed first-half goals."
+  );
+  const [disclaimer, setDisclaimer] = useState<string>(
+    "In certain cases, market totals include transactions from all regional offices (including those unlisted), which may result in minor variances between office-level aggregates and total market Attach Rates."
+  );
+  const [thankYouText, setThankYouText] = useState<string>(
+    "Thank you for your continued partnership."
+  );
+
+  // Status indicators for file load
+  const [monthlyFileName, setMonthlyFileName] = useState<string>("Preloaded April 2026 Sample Data");
+  const [quarterlyFileName, setQuarterlyFileName] = useState<string>("Preloaded Q2'25 - Q1'26 Sample Data");
+  const [isUsingPreloaded, setIsUsingPreloaded] = useState<boolean>(true);
+
+  // Active configurations
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Populate preloaded sample data on mount or when requested
+  useEffect(() => {
+    if (isUsingPreloaded) {
+      loadPreloadedData(selectedRegion);
+    }
+  }, [selectedRegion, isUsingPreloaded]);
+
+  const loadPreloadedData = (region: string) => {
+    const { monthly, quarterly } = getGeneratedSampleDataForRegion(region);
+    setMonthlyRows(monthly);
+    setQuarterlyRows(quarterly);
+    
+    // Adapt tagline based on region
+    if (region === DEFAULT_REGION) {
+      setReportingPeriod("April 2026");
+      setTagline("Results trending ahead of plan on path to exceed first-half goals.");
+    } else {
+      setReportingPeriod("Q2 2026 Period");
+      setTagline("Continuous operational expansion shows robust performance trending above targets.");
+    }
+  };
+
+  // Callback triggered when files are processed by UploadWizard
+  const handleDataParsed = (payload: {
+    monthlyRows: MonthlyRow[];
+    quarterlyRows: QuarterlyRow[];
+    monthlyFileName: string;
+    quarterlyFileName: string;
+  }) => {
+    setMonthlyRows(payload.monthlyRows);
+    setQuarterlyRows(payload.quarterlyRows);
+    setMonthlyFileName(payload.monthlyFileName);
+    setQuarterlyFileName(payload.quarterlyFileName);
+    setIsUsingPreloaded(false);
+
+    // If uploading custom files, try to autodetect region from raw data if the uploaded region matches one in the list
+    const firstRowRegion = payload.monthlyRows[0]?.region;
+    if (firstRowRegion) {
+      const match = REGIONS_LIST.find(r => r.toLowerCase().trim() === firstRowRegion.toLowerCase().trim());
+      if (match) {
+        setSelectedRegion(match);
+      }
+    }
+    
+    triggerToast("Datasets uploaded and mapped successfully!");
+  };
+
+  // Update a single cell in our monthly rows (inline table editing)
+  const handleRowUpdate = (updatedRow: MonthlyRow) => {
+    setMonthlyRows(prev => prev.map(row => row.id === updatedRow.id ? updatedRow : row));
+    triggerToast(`Updated ${updatedRow.agentOffice} cells`);
+  };
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleResetData = () => {
+    setIsUsingPreloaded(true);
+    setMonthlyFileName("Preloaded April 2026 Sample Data");
+    setQuarterlyFileName("Preloaded Q2'25 - Q1'26 Sample Data");
+    loadPreloadedData(selectedRegion);
+    triggerToast("Reset back to beautiful preloaded sample data!");
+  };
+
+  // FILTER LOGIC & DERIVATION of KPIs
+  const currentRegionMonthlyRows = monthlyRows.filter(r => r.region === selectedRegion);
+
+  // Divide into standard office rows and summary totals
+  const offices = currentRegionMonthlyRows.filter(r => !r.isTotalRow);
+  const totals = currentRegionMonthlyRows.filter(r => !!r.isTotalRow);
+
+  // Primary Aggregate Row representation
+  const primaryTotalRow = totals[0] || currentRegionMonthlyRows[0];
+  
+  // 1. Regional Attach Rate
+  const regionalAttachRate = primaryTotalRow ? `${primaryTotalRow.attachRate.toFixed(2)}%` : "0.00%";
+  const regionalTarget = primaryTotalRow ? `${primaryTotalRow.firstHalfTarget.toFixed(2)}%` : "2.50%";
+  
+  const rawDiff = primaryTotalRow ? (primaryTotalRow.attachRate - primaryTotalRow.firstHalfTarget) : 0;
+  const regionalAttachDiff = `${rawDiff >= 0 ? "+" : ""}${rawDiff.toFixed(2)} pp`;
+
+  // 2. Progress to 1H Goal (signed pp value)
+  const progressToGoalVal = primaryTotalRow ? primaryTotalRow.progressToGoal : 0;
+  const progressToGoal = `${progressToGoalVal >= 0 ? "+" : ""}${progressToGoalVal.toFixed(1)} pp`;
+  const isProgressPositive = progressToGoalVal >= 0;
+  const progressText = progressToGoalVal >= 0 ? "Ahead of target" : "Behind target";
+
+  // 3. Total Funded OP Loans (aggregated sum of totals, fallback to sum of offices)
+  const fundedLoansVal = totals.length > 0 
+    ? totals.reduce((sum, r) => sum + r.totalFundedOPLoans, 0)
+    : offices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+  const fundedLoans = String(fundedLoansVal);
+  
+  // Format Funded loans label nicer
+  const marketNames = totals.map(t => t.agentOffice.replace(/\s+total$/i, "")).join(" & ");
+  const fundedSublabel = marketNames || "Region Total";
+
+  // 4. Top Performing Office (highest attachRate among offices with funded loans > 0)
+  const officesWithLoans = offices.filter(o => o.totalFundedOPLoans > 0);
+  const topOffice = officesWithLoans.length > 0
+    ? [...officesWithLoans].sort((a, b) => b.attachRate - a.attachRate)[0]
+    : offices.length > 0 ? [...offices].sort((a,b) => b.attachRate - a.attachRate)[0] : null;
+  
+  const topOfficeRate = topOffice ? `${topOffice.attachRate.toFixed(1)}%` : "0.0%";
+  const topOfficeName = topOffice ? topOffice.agentOffice : "N/A";
+
+  // 5. Most Improved Office (highest progressToGoal pp value among offices)
+  const mostImprovedOffice = offices.length > 0
+    ? [...offices].sort((a, b) => b.progressToGoal - a.progressToGoal)[0]
+    : null;
+    
+  const mostImprovedDiff = mostImprovedOffice 
+    ? `${mostImprovedOffice.progressToGoal >= 0 ? "+" : ""}${mostImprovedOffice.progressToGoal.toFixed(1)} pp` 
+    : "0.0 pp";
+  const mostImprovedName = mostImprovedOffice ? mostImprovedOffice.agentOffice : "N/A";
+
+  // Target rate for trend chart drawing
+  const targetRate = primaryTotalRow ? primaryTotalRow.firstHalfTarget : 2.5;
+
+  // Handle Copy of formatted HTML template to clipboard
+  const handleCopyHTML = async () => {
+    try {
+      const htmlBlock = generateEmailHTML({
+        regionName: selectedRegion,
+        reportingPeriod,
+        tagline,
+        disclaimer,
+        thankYouText,
+        monthlyRows: currentRegionMonthlyRows,
+        chartBase64: "",
+        kpis: {
+          regionalAttachRate,
+          regionalAttachDiff,
+          regionalTarget,
+          progressToGoal,
+          progressText,
+          isProgressPositive,
+          fundedLoans,
+          fundedSublabel,
+          topOfficeName,
+          topOfficeRate,
+          mostImprovedName,
+          mostImprovedDiff
+        }
+      });
+
+      await navigator.clipboard.writeText(htmlBlock);
+      triggerToast("Copied! Paste into your email client.");
+    } catch (err) {
+      console.error("Failed to copy email template string: ", err);
+      alert("Unable to write to clipboard. Ensure clipboard permissions are enabled.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F0F4F8] text-[#1C1C1C] flex flex-col font-sans antialiased">
+      
+      {/* GLOBAL BANNER HEADER */}
+      <header className="bg-[#2D5A4E] text-white py-4 px-6 shadow-md border-b border-[#1C3A32]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-white/10 p-2 rounded-lg border border-white/10">
+              <TrendingUp className="w-6 h-6 text-[#EDF4FB]" />
+            </div>
+            <div>
+              <h1 className="text-lg font-serif font-semibold tracking-wide">OriginPoint</h1>
+              <p className="text-[10px] tracking-widest text-[#EDF4FB]/70 font-sans uppercase">
+                Regional Attach Rate Report Builder
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-[#EDF4FB]/80 font-medium font-sans">Active Region:</span>
+            <div className="relative">
+              <select
+                id="region-selector-dropdown"
+                value={selectedRegion}
+                onChange={(e) => setSelectedRegion(e.target.value)}
+                className="bg-white text-gray-800 text-xs font-semibold font-sans py-2 pl-3 pr-8 rounded-lg cursor-pointer border border-[#C8DCF0] focus:ring-1 focus:ring-[#2D5A4E] outline-none appearance-none"
+              >
+                {REGIONS_LIST.map((region, idx) => (
+                  <option key={idx} value={region}>{region}</option>
+                ))}
+              </select>
+              <div className="absolute right-2.5 top-[11px] pointer-events-none text-gray-400">
+                <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+              </div>
+            </div>
+
+            {!isUsingPreloaded && (
+              <button
+                id="reset-preloaded-data-btn"
+                onClick={handleResetData}
+                className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold py-2 px-3 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
+                title="Reset to preloaded Washington DC sample dataset"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset to Sample</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* FLOATING ACTION MESSAGES */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-[#2D5A4E] text-white text-xs font-semibold py-3 px-5 rounded-xl shadow-2xl border border-white/10 z-50 animate-slideUp flex items-center gap-2">
+          <div className="bg-white/20 p-1 rounded-full text-white">
+            <Check className="w-3.5 h-3.5" />
+          </div>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+        {/* DRAG-AND-DROP UPLOAD SECTION */}
+        <UploadWizard 
+          onDataParsed={handleDataParsed}
+          currentMonthlyFileName={monthlyFileName}
+          currentQuarterlyFileName={quarterlyFileName}
+        />
+
+        {/* REPORT METADATA CONFIGURATION CONTROLS */}
+        <div className="bg-white p-5 rounded-xl border border-[#C8DCF0] shadow-sm">
+          <div className="flex items-center gap-2 border-b pb-3 mb-4">
+            <Sliders className="w-4 h-4 text-[#2D5A4E]" />
+            <h3 className="text-xs font-semibold text-[#2D5A4E] tracking-wider uppercase font-sans">
+              Report Narrative & Custom Labels
+            </h3>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Reporting Period</label>
+              <input
+                type="text"
+                value={reportingPeriod}
+                onChange={(e) => setReportingPeriod(e.target.value)}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-gray-50/50 outline-none text-gray-800 hover:border-gray-400 focus:border-[#2D5A4E]"
+                placeholder="e.g. April 2026"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 col-span-3">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Region Tagline / Highlights sentence</label>
+              <input
+                type="text"
+                value={tagline}
+                onChange={(e) => setTagline(e.target.value)}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-gray-50/50 outline-none text-gray-800 hover:border-gray-400 focus:border-[#2D5A4E]"
+                placeholder="Region key achievements review sentence"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 col-span-2">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Disclaimer Footer Text</label>
+              <textarea
+                value={disclaimer}
+                onChange={(e) => setDisclaimer(e.target.value)}
+                rows={2}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-gray-50/50 outline-none text-gray-800 hover:border-gray-400 focus:border-[#2D5A4E] min-h-[50px] resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 col-span-2">
+              <label className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Thank You Sign-Off Text</label>
+              <textarea
+                value={thankYouText}
+                onChange={(e) => setThankYouText(e.target.value)}
+                rows={2}
+                className="text-xs border border-gray-300 rounded-lg p-2 bg-gray-50/50 outline-none text-gray-800 hover:border-gray-400 focus:border-[#2D5A4E] min-h-[50px] resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* WORK BENCH LAYOUT (Live preview top, KPI Cards & Table below) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          {/* VISUAL EMAIL BLOCK PREVIEW AND COPY CLIPBOARD ACTION (NOW ON TOP) */}
+          <EmailPreview
+            selectedRegion={selectedRegion}
+            reportingPeriod={reportingPeriod}
+            tagline={tagline}
+            disclaimer={disclaimer}
+            thankYouText={thankYouText}
+            regionalAttachRate={regionalAttachRate}
+            regionalTarget={regionalTarget}
+            progressToGoal={progressToGoal}
+            progressToGoalVal={progressToGoalVal}
+            progressText={progressText}
+            fundedLoans={fundedLoans}
+            fundedSublabel={fundedSublabel}
+            topOfficeRate={topOfficeRate}
+            topOfficeName={topOfficeName}
+            mostImprovedDiff={mostImprovedDiff}
+            mostImprovedName={mostImprovedName}
+            currentRegionMonthlyRows={currentRegionMonthlyRows}
+            handleCopyHTML={handleCopyHTML}
+          />
+
+          {/* LEFT: LIVE WORKING REPORTS & CHARTS */}
+          <div className="lg:col-span-12 space-y-6">
+
+            {/* LIVE KPI VISUAL CARDS GRID */}
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-[#2D5A4E] mb-3 ml-1">
+                Derived KPI Summary Cards
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                
+                {/* 1. Regional Attach Rate */}
+                <div className="bg-[#2D5A4E] text-white p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
+                  <span className="text-[9px] font-bold tracking-widest text-[#EDF4FB]/60 uppercase leading-snug">
+                    Regional Attach Rate
+                  </span>
+                  <div className="my-2.5">
+                    <span className="font-serif text-3xl font-bold leading-none">{regionalAttachRate}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#EDF4FB]/70 block leading-tight">vs. Target: {regionalTarget}</span>
+                    <div className="inline-block bg-white/15 text-[10px] font-medium px-2 py-0.5 rounded-full mt-1.5">
+                      {regionalAttachDiff}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Progress to 1H Goal */}
+                <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
+                  <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
+                    1H Goal Progress
+                  </span>
+                  <div className="my-2.5">
+                    <span className={`font-serif text-3xl font-bold leading-none ${progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"}`}>
+                      {progressToGoal}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#999999] block leading-tight">{progressText}</span>
+                    <div className="invisible h-4 mt-2">spacer</div>
+                  </div>
+                </div>
+
+                {/* 3. Total Funded OP Loans */}
+                <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
+                  <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
+                    Funded OP Loans
+                  </span>
+                  <div className="my-2.5">
+                    <span className="font-serif text-3xl font-bold leading-none text-[#1C3A32]">
+                      {fundedLoans}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={fundedSublabel}>
+                      {fundedSublabel}
+                    </span>
+                    <div className="invisible h-4 mt-2">spacer</div>
+                  </div>
+                </div>
+
+                {/* 4. Top Performing Office */}
+                <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
+                  <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
+                    Top Office
+                  </span>
+                  <div className="my-2.5">
+                    <span className="font-serif text-3xl font-bold leading-none text-[#2D5A4E]">
+                      {topOfficeRate}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={topOfficeName}>
+                      {topOfficeName}
+                    </span>
+                    <div className="invisible h-4 mt-2">spacer</div>
+                  </div>
+                </div>
+
+                {/* 5. Most Improved Office */}
+                <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
+                  <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
+                    Most Improved
+                  </span>
+                  <div className="my-2.5">
+                    <span className="font-serif text-3xl font-bold leading-none text-[#1A7A3C]">
+                      {mostImprovedDiff}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={mostImprovedName}>
+                      {mostImprovedName}
+                    </span>
+                    <div className="invisible h-4 mt-2">spacer</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* INTERACTIVE COMPREHENSIVE DATA TABLE */}
+            {currentRegionMonthlyRows.length === 0 ? (
+              <div className="bg-white rounded-xl border border-dashed border-[#C8DCF0] p-12 text-center flex flex-col items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-gray-300 mb-2" />
+                <h4 className="text-sm font-semibold text-gray-800">No regional rows found</h4>
+                <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                  The selected region does not contain any records. Please load preloaded sample data or configure columns mapping correctly in the upload bar.
+                </p>
+                <button
+                  onClick={handleResetData}
+                  className="mt-4 px-4 py-2 text-xs font-medium text-white bg-[#2D5A4E] hover:bg-[#1C3A32] rounded-lg cursor-pointer"
+                >
+                  Load Preloaded Washington Sample Dataset
+                </button>
+              </div>
+            ) : (
+              <EditableTable 
+                rows={currentRegionMonthlyRows}
+                onRowUpdate={handleRowUpdate}
+                reportingPeriod={reportingPeriod}
+              />
+            )}
+
+          </div>
+
+          {/* RIGHT: REAL-TIME 600PX NEWSLETTER EMAIL BLOCK PREVIEW AND COPY CLIPBOARD ACTION */}
+          <div className="hidden lg:col-span-12 space-y-4">
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#C8DCF0] pb-2 mb-2">
+              <div>
+                <h3 className="font-serif text-base font-semibold text-[#2D5A4E] flex items-center gap-1.5">
+                  <Globe className="w-4.5 h-4.5" />
+                  Visual Email Block Preview (600px width)
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Below is the exact output rendered for email tools (Gmail, Outlook, Compass Mail, etc.).
+                </p>
+              </div>
+
+              {/* COPY HTML BUTTON ACTIONS */}
+              <button
+                id="copy-email-html-btn"
+                onClick={handleCopyHTML}
+                disabled={currentRegionMonthlyRows.length === 0}
+                className="w-full sm:w-auto px-5 py-2.5 font-sans font-bold text-xs uppercase tracking-wider text-white bg-[#2D5A4E] hover:bg-[#1C3A32] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow cursor-pointer transition-colors flex items-center justify-center gap-2 shrink-0 animate-bounce"
+              >
+                <Clipboard className="w-4 h-4 text-white" />
+                <span>Copy as Email HTML</span>
+              </button>
+            </div>
+
+            {/* PREVIEW CONTAINER */}
+            <div className="bg-slate-200 border border-[#C8DCF0] p-6 rounded-2xl flex justify-center items-center overflow-auto min-h-[480px]">
+              
+              {/* 600px Preview block */}
+              <div 
+                className="w-[600px] bg-[#EDF4FB] p-6 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
+                style={{ width: "600px", maxWidth: "100%" }}
+              >
+                
+                {/* Header block preview */}
+                <div className="bg-[#2D5A4E] p-5 rounded-t-xl relative overflow-hidden text-white">
+                  <div className="absolute -right-10 -top-12 width-48 height-48 rounded-full border border-white/5 pointer-events-none"></div>
+                  <div className="absolute right-8 -top-4 width-32 height-32 rounded-full border border-white/5 pointer-events-none"></div>
+                  
+                  {/* OriginPoint Base64 Logo in preview */}
+                  <img src="data:image/png;base64,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" 
+                    height="38" 
+                    alt="OriginPoint Logo" 
+                    className="h-[38px] w-auto border-none mb-3 outline-none block" 
+                  />
+                  <p className="margin-0 text-[10px] font-bold tracking-widest text-[#EDF4FB]/60 uppercase font-sans">
+                    Mortgage attach rate report
+                  </p>
+                  <h3 className="margin-0 font-serif text-xl font-bold text-white mt-1">
+                    {selectedRegion}
+                  </h3>
+                  <p className="margin-0 text-xs text-[#EDF4FB]/75 font-sans mt-1">
+                    {reportingPeriod} &middot; {tagline}
+                  </p>
+                </div>
+
+                {/* Main section preview body */}
+                <div className="bg-white border-x border-b border-[#C8DCF0] rounded-b-xl p-5 text-gray-800">
+                  
+                  {/* Highlights Header */}
+                  <p className="text-[10px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-3 font-sans">
+                    April Highlights
+                  </p>
+
+                  {/* KPI Cards Row Grid */}
+                  <div className="grid grid-cols-5 gap-2 mb-5">
+                    
+                    {/* KPI 1 */}
+                    <div className="bg-[#2D5A4E] text-white rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
+                      <span className="text-[7.5px] font-bold text-[#EDF4FB]/60 leading-tight">REGIONAL ATTACH</span>
+                      <span className="font-serif text-base font-bold my-1 leading-none">{regionalAttachRate}</span>
+                      <span className="text-[9px] text-[#EDF4FB]/70 leading-tight">Target {regionalTarget}</span>
+                    </div>
+
+                    {/* KPI 2 */}
+                    <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
+                      <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight">1H GOAL PROGRESS</span>
+                      <span className={`font-serif text-base font-bold my-1 leading-none ${progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"}`}>
+                        {progressToGoal}
+                      </span>
+                      <span className="text-[9.5px] text-gray-400 leading-tight">{progressText}</span>
+                    </div>
+
+                    {/* KPI 3 */}
+                    <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
+                      <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight font-sans">FUNDED OP LOANS</span>
+                      <span className="font-serif text-base font-bold my-1 leading-none text-[#1C3A32]">{fundedLoans}</span>
+                      <span className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap">{fundedSublabel}</span>
+                    </div>
+
+                    {/* KPI 4 */}
+                    <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
+                      <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight">TOP OFFICE</span>
+                      <span className="font-serif text-base font-bold my-1 leading-none text-[#2D5A4E]">{topOfficeRate}</span>
+                      <span className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap" title={topOfficeName}>{topOfficeName}</span>
+                    </div>
+
+                    {/* KPI 5 */}
+                    <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
+                      <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight">MOST IMPROVED</span>
+                      <span className="font-serif text-base font-bold my-1 leading-none text-[#1A7A3C]">{mostImprovedDiff}</span>
+                      <span className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap" title={mostImprovedName}>{mostImprovedName}</span>
+                    </div>
+
+                  </div>
+
+                  {/* Trend chart removed for now */}
+
+                  {/* Data summary table preview */}
+                  <div className="border-t border-[#C8DCF0] pt-4.5">
+                    <p className="text-[10px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-2.5 font-sans">
+                      Attach Transactions Detail
+                    </p>
+                    
+                    <div className="overflow-hidden border border-[#dce9f5] rounded-lg">
+                      <table className="w-full text-left border-collapse table-auto text-[10px] leading-tight">
+                        <thead>
+                          <tr className="bg-[#2D5A4E] text-white">
+                            <th className="p-2 font-medium">Agent Office</th>
+                            <th className="p-2 text-center">Funded</th>
+                            <th className="p-2 text-center">Deals</th>
+                            <th className="p-2 text-center">Attach</th>
+                            <th className="p-2 text-center font-bold">Progress</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentRegionMonthlyRows.map((row, idx) => {
+                            const isZero = row.totalFundedOPLoans === 0;
+                            const isTotal = !!row.isTotalRow;
+                            let bg = idx % 2 === 1 ? "bg-[#F4F9FE]" : "bg-white";
+                            if (isTotal) bg = "bg-[#d8ece5]";
+
+                            return (
+                              <tr key={idx} className={`${bg} border-b border-[#dce9f5]/75`}>
+                                <td className={`p-2 font-sans ${isTotal ? "font-bold text-[#1C3A32]" : (isZero ? "text-gray-400 italic" : "text-gray-700")}`}>
+                                  {row.agentOffice}
+                                </td>
+                                <td className="p-2 text-center text-gray-800">{isZero ? "-" : row.totalFundedOPLoans}</td>
+                                <td className="p-2 text-center text-gray-800">{row.totalBuysideDeals}</td>
+                                <td className="p-2 text-center text-gray-800">
+                                  {row.attachRate === 0 ? "-" : `${row.attachRate.toFixed(1)}%`}
+                                </td>
+                                <td className={`p-2 text-center font-bold font-sans ${row.progressToGoal === 0 ? "text-gray-300" : (row.progressToGoal > 0 ? "text-[#1A7A3C]" : "text-[#C0392B]")}`}>
+                                  {row.progressToGoal === 0 ? "0.0" : `${row.progressToGoal > 0 ? "+" : ""}${row.progressToGoal.toFixed(1)}`}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <p className="text-[9px] text-gray-400 leading-normal italic mt-4 border-t pt-3">
+                    {disclaimer}
+                  </p>
+
+                </div>
+
+                {/* Centered Footer Preview block */}
+                <div className="text-center py-2.5">
+                  <p className="text-[9px] font-bold text-[#4A90D9] uppercase tracking-widest font-sans">
+                    {thankYouText}
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </main>
+
+      <footer className="bg-white border-t border-[#C8DCF0] py-6 px-6 mt-12 text-center text-xs text-gray-500 font-sans">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>&copy; 2026 OriginPoint Mortgage. Financial Analytics & Reporting Hub.</p>
+          <div className="flex gap-4">
+            <span className="text-gray-400">V1.0 - Production</span>
+            <span className="text-gray-300">|</span>
+            <a href="https://originpoint.com" target="_blank" rel="noreferrer" className="text-[#2D5A4E] font-medium hover:underline">originpoint.com</a>
+          </div>
+        </div>
+      </footer>
+
+    </div>
+  );
+}

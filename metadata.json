@@ -1,0 +1,6 @@
+{
+  "name": "OriginPoint Regional Attach Rate Report Builder",
+  "description": "Generate, customize, and export on-brand HTML email reports for monthly and quarterly mortgage attach rates by region.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
