@@ -655,17 +655,6 @@ export default function App() {
 
       </main>
 
-      <footer className="bg-white border-t border-[#C8DCF0] py-6 px-6 mt-12 text-center text-xs text-gray-500 font-sans">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>&copy; 2026 OriginPoint Mortgage. Financial Analytics & Reporting Hub.</p>
-          <div className="flex gap-4">
-            <span className="text-gray-400">V1.0 - Production</span>
-            <span className="text-gray-300">|</span>
-            <a href="https://originpoint.com" target="_blank" rel="noreferrer" className="text-[#2D5A4E] font-medium hover:underline">originpoint.com</a>
-          </div>
-        </div>
-      </footer>
-
     </div>
   );
 }
