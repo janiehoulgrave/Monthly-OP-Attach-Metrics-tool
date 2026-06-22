@@ -84,12 +84,21 @@ export default function App() {
     setQuarterlyFileName(payload.quarterlyFileName);
     setIsUsingPreloaded(false);
 
-    // If uploading custom files, try to autodetect region from raw data if the uploaded region matches one in the list
-    const firstRowRegion = payload.monthlyRows[0]?.region;
-    if (firstRowRegion) {
-      const match = REGIONS_LIST.find(r => r.toLowerCase().trim() === firstRowRegion.toLowerCase().trim());
-      if (match) {
-        setSelectedRegion(match);
+    // Dynamic region selection: compile unique regions present in the uploaded monthly rows
+    const uniqueUploadedRegions = Array.from(
+      new Set(payload.monthlyRows.map(r => r.region).filter(Boolean))
+    ).sort();
+
+    if (uniqueUploadedRegions.length > 0) {
+      // Find if our current selection is in the uploaded list (case-insensitive and trimmed)
+      const currentExists = uniqueUploadedRegions.find(
+        r => r.toLowerCase().trim() === selectedRegion.toLowerCase().trim()
+      );
+      if (currentExists) {
+        setSelectedRegion(currentExists);
+      } else {
+        // Fallback to the first region available in the uploaded dataset
+        setSelectedRegion(uniqueUploadedRegions[0]);
       }
     }
     
@@ -111,12 +120,23 @@ export default function App() {
     setIsUsingPreloaded(true);
     setMonthlyFileName("Preloaded April 2026 Sample Data");
     setQuarterlyFileName("Preloaded Q2'25 - Q1'26 Sample Data");
-    loadPreloadedData(selectedRegion);
+    setSelectedRegion(DEFAULT_REGION);
+    loadPreloadedData(DEFAULT_REGION);
     triggerToast("Reset back to beautiful preloaded sample data!");
   };
 
   // FILTER LOGIC & DERIVATION of KPIs
-  const currentRegionMonthlyRows = monthlyRows.filter(r => r.region === selectedRegion);
+  // Derive list of available regions depending on whether we are using preloaded or uploaded datasets
+  const parsedRegions = Array.from(new Set(monthlyRows.map(r => r.region).filter(Boolean))).sort();
+  const availableRegions = isUsingPreloaded
+    ? REGIONS_LIST
+    : parsedRegions.length > 0
+    ? parsedRegions
+    : REGIONS_LIST;
+
+  const currentRegionMonthlyRows = monthlyRows.filter(
+    r => r.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim()
+  );
 
   // Divide into standard office rows and summary totals
   const offices = currentRegionMonthlyRows.filter(r => !r.isTotalRow);
@@ -232,7 +252,7 @@ export default function App() {
                 onChange={(e) => setSelectedRegion(e.target.value)}
                 className="bg-white text-gray-800 text-xs font-semibold font-sans py-2 pl-3 pr-8 rounded-lg cursor-pointer border border-[#C8DCF0] focus:ring-1 focus:ring-[#2D5A4E] outline-none appearance-none"
               >
-                {REGIONS_LIST.map((region, idx) => (
+                {availableRegions.map((region, idx) => (
                   <option key={idx} value={region}>{region}</option>
                 ))}
               </select>
