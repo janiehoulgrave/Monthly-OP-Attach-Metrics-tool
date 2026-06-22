@@ -35,6 +35,10 @@ export function generateEmailHTML({
   chartBase64,
   kpis
 }: ExporterParams): string {
+  // Try resolving absolute URL for general public hosting of the logo relative to the active origin path
+  const origin = (typeof window !== "undefined" && window.location) ? window.location.origin : "";
+  const logoUrl = origin ? `${origin}/logo.png` : logoBase64;
+
   // Format Rows in basic elegant tables
   const rowsHtml = monthlyRows.map((row, idx) => {
     const isZero = row.totalFundedOPLoans === 0;
@@ -95,7 +99,7 @@ export function generateEmailHTML({
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#2D5A4E; border-radius:12px 12px 0 0; position:relative; overflow:hidden;">
           <tr>
             <td style="padding: 24px 24px 20px 24px; position:relative; z-index:10;">
-              <img src="${logoBase64}" height="42" alt="OriginPoint Logo" style="height:42px; width:auto; border:none; display:block; margin-bottom:14px; outline:none; text-decoration:none;" />
+              <img src="${logoUrl}" height="42" alt="OriginPoint Logo" style="height:42px; width:auto; border:none; display:block; margin-bottom:14px; outline:none; text-decoration:none;" />
               <p style="margin: 0 0 4px 0; font-size: 10px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6); font-family: Arial, sans-serif;">MORTGAGE ATTACH RATE REPORT</p>
               <h1 style="margin: 0 0 6px 0; font-family: Georgia, serif; font-size: 24px; font-weight: normal; color: #FFFFFF; line-height: 1.2;">${regionName}</h1>
               <p style="margin: 0 0 14px 0; font-size: 12px; color: rgba(255,255,255,0.7); font-family: Arial, sans-serif; line-height: 1.4;">${reportingPeriod} &middot; ${tagline}</p>

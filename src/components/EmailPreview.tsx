@@ -89,9 +89,13 @@ export default function EmailPreview({
             <div className="absolute -right-10 -top-12 w-48 h-48 rounded-full border border-white/5 pointer-events-none"></div>
             <div className="absolute right-8 -top-4 w-32 h-32 rounded-full border border-white/5 pointer-events-none"></div>
 
-            {/* OriginPoint Base64 Logo in preview */}
+            {/* OriginPoint Logo with support for physical logo.png from repository public folder */}
             <img
-              src={logoBase64}
+              src="/logo.png"
+              onError={(e) => {
+                e.currentTarget.onerror = null; // Prevent infinite loop
+                e.currentTarget.src = logoBase64;
+              }}
               className="h-[38px] w-auto border-none mb-3 outline-none block"
               alt="OriginPoint Logo"
             />
