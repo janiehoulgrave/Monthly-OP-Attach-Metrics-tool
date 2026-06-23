@@ -53,27 +53,39 @@ export default function Login({ onAuthSuccess }: LoginProps) {
         return;
       }
 
-      // Check Firestore to see if approved users list has any entries.
-      // We will make sure the two default users are always seeded if they don't exist.
+      // We define the default approved users.
       const defaultUsers = [
         "janie.houlgrave@compass.com",
         "alex.mcdowell@compass.com"
       ];
 
-      for (const defaultEmail of defaultUsers) {
-        const dDocRef = doc(db, "approved_users", defaultEmail.toLowerCase().trim());
-        const dDocSnap = await getDoc(dDocRef);
-        if (!dDocSnap.exists()) {
-          await setDoc(dDocRef, {
-            email: defaultEmail.toLowerCase().trim(),
-            role: "editor",
-            addedAt: new Date().toISOString(),
-            addedBy: "system"
-          });
+      // 1. Try to seed default users in Firestore background so they exist, but DO NOT block if it fails.
+      try {
+        for (const defaultEmail of defaultUsers) {
+          const dDocRef = doc(db, "approved_users", defaultEmail.toLowerCase().trim());
+          const dDocSnap = await getDoc(dDocRef);
+          if (!dDocSnap.exists()) {
+            await setDoc(dDocRef, {
+              email: defaultEmail.toLowerCase().trim(),
+              role: "editor",
+              addedAt: new Date().toISOString(),
+              addedBy: "system"
+            });
+          }
         }
+      } catch (seedErr) {
+        console.warn("Could not seed default users to Firestore:", seedErr);
+        // Do not crash or block - fallback checks below handle default users
       }
 
-      // Now check if the current user is approved
+      // 2. If the logging in user is one of the default users, approve them IMMEDIATELY (in-memory bypass)
+      if (defaultUsers.includes(email)) {
+        setIsApproved(true);
+        onAuthSuccess(user);
+        return;
+      }
+
+      // 3. For any other user, read their approval document from Firestore
       const userDocRef = doc(db, "approved_users", email);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -86,7 +98,7 @@ export default function Login({ onAuthSuccess }: LoginProps) {
       }
     } catch (err: any) {
       console.error("Error during authorization checks:", err);
-      setErrorMsg("An error occurred while verifying your permission. Please try again.");
+      setErrorMsg(`An error occurred while verifying your permission: ${err.message || err.toString()}`);
       setIsApproved(false);
     } finally {
       setLoading(false);

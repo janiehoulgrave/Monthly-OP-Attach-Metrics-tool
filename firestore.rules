@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper to get user's email in lowercase
+    function getUserEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    // Hardcoded bootstrap check for initial system admin users
+    function isDefaultUser() {
+      return getUserEmail() == 'janie.houlgrave@compass.com' || getUserEmail() == 'alex.mcdowell@compass.com';
+    }
+
+    // Checks if current user is either a default user or registered in approved_users
+    function isApprovedUser() {
+      return isDefaultUser() || exists(/databases/$(database)/documents/approved_users/$(getUserEmail()));
+    }
+
+    match /approved_users/{email} {
+      // Allow any authenticated user to check/get their own document
+      allow get: if isAuthenticated() && getUserEmail() == email.lower();
+
+      // Allow approved users to read (list/get), add, update, and delete entries
+      allow list, write: if isAuthenticated() && isApprovedUser();
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "ApprovedUser": {
+      "title": "ApprovedUser",
+      "description": "An authorized user email with roles",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The lowercase email address of the approved user"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user, e.g. editor"
+        },
+        "addedAt": {
+          "type": "string",
+          "description": "ISO timestamp of when the user was added"
+        },
+        "addedBy": {
+          "type": "string",
+          "description": "Email of the admin/user who approved this account"
+        }
+      },
+      "required": [
+        "email",
+        "role"
+      ]
+    }
+  },
+  "firestore": {
+    "/approved_users/{email}": {
+      "schema": "ApprovedUser",
+      "description": "Collection of users authorized to access the dashboard"
+    }
+  }
+}
