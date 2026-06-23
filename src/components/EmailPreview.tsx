@@ -1,6 +1,7 @@
-import React from "react";
-import { Globe, Clipboard } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Globe, Clipboard, Download } from "lucide-react";
 import { logoBase64 } from "../utils/logo";
+import { toJpeg } from "html-to-image";
 
 interface MonthlyRow {
   agentOffice: string;
@@ -52,6 +53,44 @@ export default function EmailPreview({
   currentRegionMonthlyRows,
   handleCopyHTML,
 }: EmailPreviewProps) {
+  const emailBlockRef = useRef<HTMLDivElement | null>(null);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+
+  const handleDownload = async () => {
+    if (!emailBlockRef.current) return;
+    setIsDownloading(true);
+    try {
+      // Minimal delay to ensure DOM state is flushed
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const node = emailBlockRef.current;
+
+      // Use a custom resolution scale of 2.5 for incredibly crisp, high-definition (retina-ready) export
+      const dataUrl = await toJpeg(node, {
+        pixelRatio: 2.5,
+        quality: 0.95,
+        backgroundColor: "#EDF4FB",
+        style: {
+          borderRadius: "16px",
+        },
+      });
+
+      const safeRegion = selectedRegion.trim().replace(/[^a-zA-Z0-9]+/g, "_");
+      const safePeriod = reportingPeriod.trim().replace(/[^a-zA-Z0-9]+/g, "_");
+      const filename = `${safeRegion}_Attach_Rate_Report_${safePeriod}.jpg`;
+
+      const link = document.createElement("a");
+      link.download = filename;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to generate image:", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="lg:col-span-12 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#C8DCF0] pb-2 mb-2">
@@ -65,22 +104,44 @@ export default function EmailPreview({
           </p>
         </div>
 
-        {/* COPY HTML BUTTON ACTIONS */}
-        <button
-          id="copy-email-html-btn"
-          onClick={handleCopyHTML}
-          disabled={currentRegionMonthlyRows.length === 0}
-          className="w-full sm:w-auto px-5 py-2.5 font-sans font-bold text-xs uppercase tracking-wider text-white bg-[#2D5A4E] hover:bg-[#1C3A32] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow cursor-pointer transition-colors flex items-center justify-center gap-2 shrink-0 animate-bounce"
-        >
-          <Clipboard className="w-4 h-4 text-white" />
-          <span>Copy as Email HTML</span>
-        </button>
+        {/* DOWNLOAD & COPY BUTTON ACTIONS */}
+        <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto">
+          {/* Download JPG */}
+          <button
+            id="download-jpg-btn"
+            onClick={handleDownload}
+            disabled={currentRegionMonthlyRows.length === 0 || isDownloading}
+            className="w-full sm:w-auto px-4 py-2 font-sans font-bold text-xs uppercase tracking-wider text-white bg-[#2D5A4E] hover:bg-[#1C3A32] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow cursor-pointer transition-colors flex items-center justify-center gap-1.5 shrink-0 border border-transparent"
+            title="Download report block as a high-quality JPG image"
+          >
+            {isDownloading ? (
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Download className="w-3.5 h-3.5 text-white" />
+            )}
+            <span>{isDownloading ? "Downloading..." : "Download JPG Image"}</span>
+          </button>
+
+          {/* Secondary Clipboard Copy */}
+          <button
+            id="copy-email-html-btn"
+            onClick={handleCopyHTML}
+            disabled={currentRegionMonthlyRows.length === 0}
+            className="w-full sm:w-auto px-4 py-2 font-sans font-bold text-xs uppercase tracking-wider text-[#2D5A4E] bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow cursor-pointer transition-colors flex items-center justify-center gap-1.5 shrink-0 border border-[#2D5A4E]/30"
+            title="Copy report as raw Email HTML"
+          >
+            <Clipboard className="w-3.5 h-3.5 text-[#2D5A4E]" />
+            <span>Copy HTML</span>
+          </button>
+        </div>
       </div>
 
       {/* PREVIEW CONTAINER */}
       <div className="bg-slate-200 border border-[#C8DCF0] p-6 rounded-2xl flex justify-center items-center overflow-auto min-h-[480px]">
         {/* 600px Preview block */}
         <div
+          ref={emailBlockRef}
+          id="email-preview-block"
           className="w-[600px] bg-[#EDF4FB] p-6 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
           style={{ width: "600px", maxWidth: "100%" }}
         >
@@ -91,11 +152,7 @@ export default function EmailPreview({
 
             {/* OriginPoint Logo with support for physical logo.png from repository public folder */}
             <img
-              src="/logo.png"
-              onError={(e) => {
-                e.currentTarget.onerror = null; // Prevent infinite loop
-                e.currentTarget.src = logoBase64;
-              }}
+              src={logoBase64}
               className="h-[38px] w-auto border-none mb-3 outline-none block"
               alt="OriginPoint Logo"
             />

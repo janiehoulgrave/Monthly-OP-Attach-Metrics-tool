@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { MonthlyRow, QuarterlyRow, MonthlyColumnMapping, QuarterlyColumnMapping } from "../types";
+import { MonthlyRow, YTDRow, MonthlyColumnMapping, YTDColumnMapping } from "../types";
 
 // Fuzzy match helpers
 export const FUZZY_MONTHLY_TEMPLATES: Record<keyof MonthlyColumnMapping, string[]> = {
@@ -14,16 +14,16 @@ export const FUZZY_MONTHLY_TEMPLATES: Record<keyof MonthlyColumnMapping, string[
   progressToGoal: ["progress to 1h mortgage attach rate goal", "progress (pp)", "progress to 1h goal", "goal progress", "progress_pp", "progress"]
 };
 
-export const FUZZY_QUARTERLY_TEMPLATES: Record<keyof QuarterlyColumnMapping, string[]> = {
+export const FUZZY_YTD_TEMPLATES: Record<keyof YTDColumnMapping, string[]> = {
   agentOffice: ["agent office", "office", "office name", "agent_office", "office_name", "location"],
-  region: ["region", "market", "region name", "region_name", "market name", "market_name"],
-  quarter: ["quarter", "qtr", "period", "quarter_name", "quarter name"],
-  totalFundedOPLoans: ["total funded op loans", "op loans", "funded loans", "total loans", "funded op loans", "loans_funded", "funded_loans", "loans"],
-  attachRate: ["attach rate", "attach rate %", "attach %", "attach_rate", "percentage", "rate"]
+  region: ["agent compass market", "market", "region", "region name", "market name", "market_name"],
+  totalMortgageAttachRate: ["total mortgage attach rate", "mortgage attach rate", "attach rate", "total attach rate", "rate"],
+  totalRampedMortgageAttachRateGoal: ["total ramped mortgage attach rate goal", "ramped attach rate goal", "goal", "target", "ramped target", "attach rate goal"],
+  progressToRampedMortgageAttachRateGoal: ["progress to ramped mortgage attach rate goal (pp)", "progress (pp)", "progress to goal", "progress"]
 };
 
 // Fuzzy matcher finding best match among headers
-export function findBestHeader(headers: string[], candidates: string[]): string {
+export function findBestHeader(headers: string[], candidates: string[], useFallback = false): string {
   const normHeaders = headers.map(h => h.toLowerCase().trim());
   
   // 1. Exact or include match
@@ -40,13 +40,13 @@ export function findBestHeader(headers: string[], candidates: string[]): string 
   }
   
   // 3. Absolute fallback
-  return headers[0] || "";
+  return useFallback ? (headers[0] || "") : "";
 }
 
 export function autoMapMonthlyColumns(headers: string[]): MonthlyColumnMapping {
   return {
-    agentOffice: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.agentOffice),
-    region: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.region),
+    agentOffice: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.agentOffice, true),
+    region: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.region, true),
     totalFundedOPLoans: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.totalFundedOPLoans),
     totalBuysideDeals: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.totalBuysideDeals),
     attachRate: findBestHeader(headers, FUZZY_MONTHLY_TEMPLATES.attachRate),
@@ -56,13 +56,13 @@ export function autoMapMonthlyColumns(headers: string[]): MonthlyColumnMapping {
   };
 }
 
-export function autoMapQuarterlyColumns(headers: string[]): QuarterlyColumnMapping {
+export function autoMapYTDColumns(headers: string[]): YTDColumnMapping {
   return {
-    agentOffice: findBestHeader(headers, FUZZY_QUARTERLY_TEMPLATES.agentOffice),
-    region: findBestHeader(headers, FUZZY_QUARTERLY_TEMPLATES.region),
-    quarter: findBestHeader(headers, FUZZY_QUARTERLY_TEMPLATES.quarter),
-    totalFundedOPLoans: findBestHeader(headers, FUZZY_QUARTERLY_TEMPLATES.totalFundedOPLoans),
-    attachRate: findBestHeader(headers, FUZZY_QUARTERLY_TEMPLATES.attachRate)
+    agentOffice: findBestHeader(headers, FUZZY_YTD_TEMPLATES.agentOffice, true),
+    region: findBestHeader(headers, FUZZY_YTD_TEMPLATES.region, true),
+    totalMortgageAttachRate: findBestHeader(headers, FUZZY_YTD_TEMPLATES.totalMortgageAttachRate),
+    totalRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_YTD_TEMPLATES.totalRampedMortgageAttachRateGoal),
+    progressToRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_YTD_TEMPLATES.progressToRampedMortgageAttachRateGoal)
   };
 }
 
@@ -76,7 +76,11 @@ export function cleanCellString(cell: any): string {
 export function parseNumber(val: any): number {
   if (val === null || val === undefined) return 0;
   if (typeof val === "number") return val;
-  const cleanStr = String(val).replace(/[^0-9.-]/g, "");
+  const rawStr = String(val).trim();
+  if (rawStr.toLowerCase().includes("infinity") || rawStr.toLowerCase().includes("∞")) {
+    return 0;
+  }
+  const cleanStr = rawStr.replace(/[^0-9.-]/g, "");
   const num = parseFloat(cleanStr);
   return isNaN(num) ? 0 : num;
 }
@@ -86,6 +90,9 @@ export function parsePercentage(val: any): number {
   if (val === null || val === undefined) return 0;
   
   const rawStr = String(val).trim();
+  if (rawStr.toLowerCase().includes("infinity") || rawStr.toLowerCase().includes("∞")) {
+    return 0;
+  }
   const hasPercentSign = rawStr.includes("%");
   
   const cleaned = rawStr.replace(/[^0-9.-]/g, "");
@@ -125,10 +132,33 @@ export function mapMonthlyRows(
     const rawRegion = cleanCellString(row[mapping.region] || "");
     const totalFunded = parseNumber(row[mapping.totalFundedOPLoans]);
     const totalBuyside = parseNumber(row[mapping.totalBuysideDeals]);
-    const attachRate = parsePercentage(row[mapping.attachRate]);
-    const firstHalfRate = parsePercentage(row[mapping.firstHalfAttachRate]);
-    const firstHalfTarget = parsePercentage(row[mapping.firstHalfTarget]);
-    const progressToGoal = parseNumber(row[mapping.progressToGoal]);
+    
+    // Default attachRate formula: if they provide it parse it, otherwise compute it:
+    let attachRate = 0;
+    if (mapping.attachRate && row[mapping.attachRate] !== undefined && row[mapping.attachRate] !== "") {
+      attachRate = parsePercentage(row[mapping.attachRate]);
+    } else {
+      attachRate = totalBuyside > 0 ? parseFloat(((totalFunded / totalBuyside) * 100).toFixed(2)) : 0;
+    }
+
+    let firstHalfRate = 0;
+    if (mapping.firstHalfAttachRate && row[mapping.firstHalfAttachRate] !== undefined && row[mapping.firstHalfAttachRate] !== "") {
+      firstHalfRate = parsePercentage(row[mapping.firstHalfAttachRate]);
+    } else {
+      firstHalfRate = attachRate;
+    }
+
+    let firstHalfTarget = 2.50; // Fallback to 2.50% standard target
+    if (mapping.firstHalfTarget && row[mapping.firstHalfTarget] !== undefined && row[mapping.firstHalfTarget] !== "") {
+      firstHalfTarget = parsePercentage(row[mapping.firstHalfTarget]);
+    }
+
+    let progressToGoal = 0;
+    if (mapping.progressToGoal && row[mapping.progressToGoal] !== undefined && row[mapping.progressToGoal] !== "") {
+      progressToGoal = parseNumber(row[mapping.progressToGoal]);
+    } else {
+      progressToGoal = parseFloat((firstHalfRate - firstHalfTarget).toFixed(1));
+    }
 
     return {
       id: `uploaded-m-${idx}-${Date.now()}`,
@@ -139,33 +169,53 @@ export function mapMonthlyRows(
       attachRate,
       firstHalfAttachRate: firstHalfRate,
       firstHalfTarget: firstHalfTarget,
-      progressToGoal: progressToGoal,
+      progressToGoal,
       isTotalRow: checkIsTotalRow(rawOffice)
     };
-  }).filter(r => r.agentOffice !== "" && r.region !== "");
+  }).filter(r => {
+    const officeLower = r.agentOffice.toLowerCase().trim();
+    const regionLower = r.region.toLowerCase().trim();
+    return (
+      officeLower !== "" &&
+      regionLower !== "" &&
+      officeLower !== regionLower &&
+      !officeLower.includes("agent office") &&
+      !officeLower.includes("office name")
+    );
+  });
 }
 
-// Parse quarterly rows
-export function mapQuarterlyRows(
+// Parse YTD rows
+export function mapYTDRows(
   jsonData: any[],
-  mapping: QuarterlyColumnMapping
-): QuarterlyRow[] {
+  mapping: YTDColumnMapping
+): YTDRow[] {
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
-    const rawQuarter = cleanCellString(row[mapping.quarter] || "");
-    const totalFunded = parseNumber(row[mapping.totalFundedOPLoans]);
-    const attachRate = parsePercentage(row[mapping.attachRate]);
+    const totalMortgageAttachRate = parsePercentage(row[mapping.totalMortgageAttachRate]);
+    const totalRampedMortgageAttachRateGoal = parsePercentage(row[mapping.totalRampedMortgageAttachRateGoal]);
+    const progressToRampedMortgageAttachRateGoal = parsePercentage(row[mapping.progressToRampedMortgageAttachRateGoal]);
 
     return {
-      id: `uploaded-q-${idx}-${Date.now()}`,
+      id: `uploaded-ytd-${idx}-${Date.now()}`,
       agentOffice: rawOffice,
       region: rawRegion,
-      quarter: rawQuarter,
-      totalFundedOPLoans: totalFunded,
-      attachRate
+      totalMortgageAttachRate,
+      totalRampedMortgageAttachRateGoal,
+      progressToRampedMortgageAttachRateGoal
     };
-  }).filter(r => r.agentOffice !== "" && r.region !== "" && r.quarter !== "");
+  }).filter(r => {
+    const officeLower = r.agentOffice.toLowerCase().trim();
+    const regionLower = r.region.toLowerCase().trim();
+    return (
+      officeLower !== "" &&
+      regionLower !== "" &&
+      officeLower !== regionLower &&
+      !officeLower.includes("agent office") &&
+      !officeLower.includes("office name")
+    );
+  });
 }
 
 // Full file helper

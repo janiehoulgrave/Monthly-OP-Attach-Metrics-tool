@@ -1,21 +1,95 @@
 import React, { useState } from "react";
-import { Edit2, Check, RefreshCw } from "lucide-react";
+import { Edit2, Check, RefreshCw, Trash2, RotateCcw, GripVertical } from "lucide-react";
 import { MonthlyRow } from "../types";
 
 interface EditableTableProps {
   rows: MonthlyRow[];
   onRowUpdate: (updatedRow: MonthlyRow) => void;
+  onRowDelete: (rowId: string) => void;
+  onRowAdd: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
   reportingPeriod: string;
+  onRowsReorder?: (newRows: MonthlyRow[]) => void;
 }
 
 export default function EditableTable({
   rows,
   onRowUpdate,
+  onRowDelete,
+  onRowAdd,
+  onUndo,
+  canUndo,
   reportingPeriod,
+  onRowsReorder,
 }: EditableTableProps) {
   // Store which cell is actively being edited: rowId + columnKey
   const [editingCell, setEditingCell] = useState<{ rowId: string; colName: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+
+  // Drag and Drop states
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, rowId: string) => {
+    const row = rows.find(r => r.id === rowId);
+    if (!row || row.isTotalRow) {
+      e.preventDefault();
+      return;
+    }
+    setDraggedRowId(rowId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent, rowId: string) => {
+    e.preventDefault();
+    const row = rows.find(r => r.id === rowId);
+    if (!row || row.isTotalRow) return;
+
+    if (dragOverRowId !== rowId) {
+      setDragOverRowId(rowId);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetRowId: string) => {
+    e.preventDefault();
+    if (!draggedRowId || draggedRowId === targetRowId) {
+      setDraggedRowId(null);
+      setDragOverRowId(null);
+      return;
+    }
+
+    const draggedRow = rows.find(r => r.id === draggedRowId);
+    const targetRow = rows.find(r => r.id === targetRowId);
+
+    if (!draggedRow || !targetRow || draggedRow.isTotalRow || targetRow.isTotalRow) {
+      setDraggedRowId(null);
+      setDragOverRowId(null);
+      return;
+    }
+
+    const activeOffices = rows.filter(r => !r.isTotalRow);
+    const draggedIdx = activeOffices.findIndex(r => r.id === draggedRowId);
+    const targetIdx = activeOffices.findIndex(r => r.id === targetRowId);
+
+    if (draggedIdx !== -1 && targetIdx !== -1) {
+      const newOffices = [...activeOffices];
+      const [removed] = newOffices.splice(draggedIdx, 1);
+      newOffices.splice(targetIdx, 0, removed);
+
+      if (onRowsReorder) {
+        onRowsReorder(newOffices);
+      }
+    }
+
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+  };
 
   const handleStartEdit = (row: MonthlyRow, colName: string, currentVal: any) => {
     setEditingCell({ rowId: row.id, colName });
@@ -122,7 +196,7 @@ export default function EditableTable({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-[#C8DCF0] overflow-hidden my-4" id="editable-reports-table">
-      <div className="bg-[#2D5A4E] p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b">
+      <div className="bg-[#2D5A4E] p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b">
         <div>
           <h3 className="font-serif text-white font-semibold text-base sm:text-lg">
             Attach Rate Transactions Table
@@ -131,22 +205,42 @@ export default function EditableTable({
             Click any cell to edit inline. Rates & Progress values auto-calculate dynamically on editing.
           </p>
         </div>
-        <div className="text-[10px] uppercase font-semibold text-[#EDF4FB] bg-white/10 px-3 py-1 rounded-full border border-white/10">
-          Showing Report for: {reportingPeriod}
+        
+        {/* Table Operations Toolbar */}
+        <div className="flex items-center gap-2.5 w-full sm:w-auto self-stretch sm:self-auto justify-between sm:justify-end">
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-white/10 shadow-sm cursor-pointer"
+            title="Undo last table edit or row operation"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Undo</span>
+          </button>
+          
+          <button
+            onClick={onRowAdd}
+            className="flex items-center gap-1 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-white text-[#2D5A4E] hover:bg-[#EDF4FB] hover:scale-[1.01] transition-all shadow-sm cursor-pointer"
+            title="Add a new custom agent office row to this region"
+          >
+            <span>+ Add Office</span>
+          </button>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse table-auto min-w-[700px]">
+        <table className="w-full text-left border-collapse table-auto min-w-[780px]">
           <thead>
             <tr className="bg-[#2D5A4E] text-white text-[9px] uppercase tracking-wider font-semibold border-b border-[#2D5A4E]">
-              <th className="py-2.5 px-4 font-medium text-left w-[240px]">Agent Office</th>
+              <th className="py-2.5 px-3 font-medium text-center w-[45px]">Move</th>
+              <th className="py-2.5 px-4 font-medium text-left w-[230px]">Agent Office</th>
               <th className="py-2.5 px-3 font-medium text-center">Funded OP Loans</th>
               <th className="py-2.5 px-3 font-medium text-center">Buyside Deals</th>
               <th className="py-2.5 px-3 font-medium text-center">Attach Rate</th>
               <th className="py-2.5 px-3 font-medium text-center">1H Rate</th>
               <th className="py-2.5 px-3 font-medium text-center">1H Target</th>
               <th className="py-2.5 px-4 font-medium text-center">Progress (pp)</th>
+              <th className="py-2.5 px-3 font-medium text-center w-[60px]">Delete</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#dce9f5]">
@@ -154,7 +248,7 @@ export default function EditableTable({
               const isZeroLoans = row.totalFundedOPLoans === 0;
               const isTotal = !!row.isTotalRow;
 
-              let rowClass = "hover:bg-[#F4F9FE]/60 transition-colors";
+              let rowClass = "hover:bg-[#F4F9FE]/60 transition-all duration-150";
               let tdClass = "py-2 px-3 text-xs text-gray-700 font-sans text-center";
               let nameClass = "py-2 px-4 text-xs font-sans text-left font-medium text-gray-800";
 
@@ -167,8 +261,37 @@ export default function EditableTable({
                 nameClass = "py-2 px-4 text-xs font-sans text-left italic font-medium text-[#aaa]";
               }
 
+              // Highlight drag over state (top border for drops)
+              if (draggedRowId && dragOverRowId === row.id && draggedRowId !== row.id) {
+                rowClass += " bg-teal-50 border-t-2 border-dashed border-[#2D5A4E]";
+              }
+
+              if (draggedRowId === row.id) {
+                rowClass += " opacity-40 bg-slate-100";
+              }
+
               return (
-                <tr key={row.id} className={rowClass}>
+                <tr 
+                  key={row.id} 
+                  className={rowClass}
+                  draggable={!isTotal && !editingCell}
+                  onDragStart={(e) => handleDragStart(e, row.id)}
+                  onDragOver={(e) => handleDragOver(e, row.id)}
+                  onDrop={(e) => handleDrop(e, row.id)}
+                  onDragEnd={handleDragEnd}
+                >
+                  {/* Grip drag handle column */}
+                  <td className="py-2 px-3 text-center text-xs">
+                    {!isTotal && (
+                      <div 
+                        className="text-gray-400 hover:text-[#2D5A4E] hover:scale-110 active:scale-95 p-1 cursor-grab active:cursor-grabbing inline-flex items-center justify-center transition-all"
+                        title="Drag this handle to reorder rows"
+                      >
+                        <GripVertical className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                  </td>
+
                   {/* Agent Office */}
                   <td className={nameClass}>
                     {isTotal ? (
@@ -233,6 +356,19 @@ export default function EditableTable({
                       formatProgress(row.progressToGoal)
                     ) : (
                       renderCellContent(row, "progressToGoal", formatProgress)
+                    )}
+                  </td>
+
+                  {/* Actions column with delete row action button */}
+                  <td className="py-2 px-3 text-center text-xs">
+                    {!isTotal && (
+                      <button
+                        onClick={() => onRowDelete(row.id)}
+                        className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 hover:scale-110 active:scale-95 transition-all inline-flex items-center justify-center cursor-pointer"
+                        title={`Delete ${row.agentOffice}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </td>
                 </tr>

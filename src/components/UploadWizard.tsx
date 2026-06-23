@@ -2,49 +2,49 @@ import React, { useState, useEffect } from "react";
 import { UploadCloud, FileSpreadsheet, Check, RefreshCw, ChevronDown, ChevronUp, AlertCircle, Sparkles } from "lucide-react";
 import { 
   MonthlyColumnMapping, 
-  QuarterlyColumnMapping, 
+  YTDColumnMapping, 
   MonthlyRow, 
-  QuarterlyRow 
+  YTDRow 
 } from "../types";
 import { 
   parseSpreadsheetFile, 
   autoMapMonthlyColumns, 
-  autoMapQuarterlyColumns,
+  autoMapYTDColumns,
   mapMonthlyRows,
-  mapQuarterlyRows
+  mapYTDRows
 } from "../utils/parser";
 
 interface UploadWizardProps {
   onDataParsed: (payload: {
     monthlyRows: MonthlyRow[];
-    quarterlyRows: QuarterlyRow[];
+    ytdRows: YTDRow[];
     monthlyFileName: string;
-    quarterlyFileName: string;
+    ytdFileName: string;
   }) => void;
   currentMonthlyFileName?: string;
-  currentQuarterlyFileName?: string;
+  currentYtdFileName?: string;
 }
 
 export default function UploadWizard({
   onDataParsed,
   currentMonthlyFileName = "Preloaded April 2026 Sample Data",
-  currentQuarterlyFileName = "Preloaded Q2'25 - Q1'26 Sample Data"
+  currentYtdFileName = "Preloaded YTD Performance & Goals Data"
 }: UploadWizardProps) {
   // Drag and drop states
   const [dragOverMonthly, setDragOverMonthly] = useState(false);
-  const [dragOverQuarterly, setDragOverQuarterly] = useState(false);
+  const [dragOverYtd, setDragOverYtd] = useState(false);
 
   // Files state
   const [monthlyFile, setMonthlyFile] = useState<File | null>(null);
-  const [quarterlyFile, setQuarterlyFile] = useState<File | null>(null);
+  const [ytdFile, setYtdFile] = useState<File | null>(null);
   
   // Parsed raw structures
   const [monthlyRaw, setMonthlyRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
-  const [quarterlyRaw, setQuarterlyRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
+  const [ytdRaw, setYtdRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
   
   // Mapping structures
   const [monthlyMapping, setMonthlyMapping] = useState<MonthlyColumnMapping | null>(null);
-  const [quarterlyMapping, setQuarterlyMapping] = useState<QuarterlyColumnMapping | null>(null);
+  const [ytdMapping, setYtdMapping] = useState<YTDColumnMapping | null>(null);
 
   // UI state
   const [isMappingOpen, setIsMappingOpen] = useState(false);
@@ -54,29 +54,29 @@ export default function UploadWizard({
   // Load saved column mappings from localStorage on init
   useEffect(() => {
     const savedMonthly = localStorage.getItem("origin_point_monthly_mapping");
-    const savedQuarterly = localStorage.getItem("origin_point_quarterly_mapping");
+    const savedYtd = localStorage.getItem("origin_point_ytd_mapping");
     if (savedMonthly) {
       try { setMonthlyMapping(JSON.parse(savedMonthly)); } catch (e) { /* ignore */ }
     }
-    if (savedQuarterly) {
-      try { setQuarterlyMapping(JSON.parse(savedQuarterly)); } catch (e) { /* ignore */ }
+    if (savedYtd) {
+      try { setYtdMapping(JSON.parse(savedYtd)); } catch (e) { /* ignore */ }
     }
   }, []);
 
   // Process files when raw data and mapping are resolved
   const processAndSubmit = (
     mRaw: typeof monthlyRaw, 
-    qRaw: typeof quarterlyRaw, 
+    yRaw: typeof ytdRaw, 
     mMap: MonthlyColumnMapping, 
-    qMap: QuarterlyColumnMapping,
+    yMap: YTDColumnMapping,
     mName: string,
-    qName: string
+    yName: string
   ) => {
-    if (!mRaw || !qRaw) return;
+    if (!mRaw || !yRaw) return;
     
     try {
       const monthlyRows = mapMonthlyRows(mRaw.data, mMap);
-      const quarterlyRows = mapQuarterlyRows(qRaw.data, qMap);
+      const ytdRows = mapYTDRows(yRaw.data, yMap);
       
       if (monthlyRows.length === 0) {
         throw new Error("No rows matched for Monthly Export. Check your Mapping keys or contents!");
@@ -84,14 +84,14 @@ export default function UploadWizard({
       
       onDataParsed({
         monthlyRows,
-        quarterlyRows,
+        ytdRows,
         monthlyFileName: mName,
-        quarterlyFileName: qName
+        ytdFileName: yName
       });
       
       // Save valid mappings
       localStorage.setItem("origin_point_monthly_mapping", JSON.stringify(mMap));
-      localStorage.setItem("origin_point_quarterly_mapping", JSON.stringify(qMap));
+      localStorage.setItem("origin_point_ytd_mapping", JSON.stringify(yMap));
       
       setSuccessMsg("Spreadsheets successfully parsed and mapped!");
       setErrorMsg(null);
@@ -134,28 +134,28 @@ export default function UploadWizard({
       }
       setMonthlyMapping(finalMap);
 
-      // If quarterly is already loaded, auto-submit
-      if (quarterlyRaw && quarterlyMapping) {
-        processAndSubmit(parsed, quarterlyRaw, finalMap, quarterlyMapping, file.name, quarterlyFile?.name || "Quarterly Export");
+      // If YTD is already loaded, auto-submit
+      if (ytdRaw && ytdMapping) {
+        processAndSubmit(parsed, ytdRaw, finalMap, ytdMapping, file.name, ytdFile?.name || "YTD Export");
       }
     } catch (err: any) {
       setErrorMsg(`Error reading Monthly File: ${err.message}`);
     }
   };
 
-  // Quarterly File Handler
-  const handleQuarterlyFile = async (file: File) => {
+  // YTD File Handler
+  const handleYtdFile = async (file: File) => {
     try {
       setErrorMsg(null);
       const parsed = await parseSpreadsheetFile(file);
       if (parsed.headers.length === 0) {
-        throw new Error("The Quarterly file appears to be empty or invalid.");
+        throw new Error("The YTD file appears to be empty or invalid.");
       }
-      setQuarterlyFile(file);
-      setQuarterlyRaw(parsed);
+      setYtdFile(file);
+      setYtdRaw(parsed);
       
-      const autoMap = autoMapQuarterlyColumns(parsed.headers);
-      const savedMapping = localStorage.getItem("origin_point_quarterly_mapping");
+      const autoMap = autoMapYTDColumns(parsed.headers);
+      const savedMapping = localStorage.getItem("origin_point_ytd_mapping");
       let finalMap = autoMap;
       if (savedMapping) {
         try {
@@ -163,20 +163,20 @@ export default function UploadWizard({
           finalMap = {
             agentOffice: parsed.headers.includes(parsedSaved.agentOffice) ? parsedSaved.agentOffice : autoMap.agentOffice,
             region: parsed.headers.includes(parsedSaved.region) ? parsedSaved.region : autoMap.region,
-            quarter: parsed.headers.includes(parsedSaved.quarter) ? parsedSaved.quarter : autoMap.quarter,
-            totalFundedOPLoans: parsed.headers.includes(parsedSaved.totalFundedOPLoans) ? parsedSaved.totalFundedOPLoans : autoMap.totalFundedOPLoans,
-            attachRate: parsed.headers.includes(parsedSaved.attachRate) ? parsedSaved.attachRate : autoMap.attachRate,
+            totalMortgageAttachRate: parsed.headers.includes(parsedSaved.totalMortgageAttachRate) ? parsedSaved.totalMortgageAttachRate : autoMap.totalMortgageAttachRate,
+            totalRampedMortgageAttachRateGoal: parsed.headers.includes(parsedSaved.totalRampedMortgageAttachRateGoal) ? parsedSaved.totalRampedMortgageAttachRateGoal : autoMap.totalRampedMortgageAttachRateGoal,
+            progressToRampedMortgageAttachRateGoal: parsed.headers.includes(parsedSaved.progressToRampedMortgageAttachRateGoal) ? parsedSaved.progressToRampedMortgageAttachRateGoal : autoMap.progressToRampedMortgageAttachRateGoal
           };
         } catch (e) {}
       }
-      setQuarterlyMapping(finalMap);
+      setYtdMapping(finalMap);
 
       // If monthly is already loaded, auto-submit
       if (monthlyRaw && monthlyMapping) {
         processAndSubmit(monthlyRaw, parsed, monthlyMapping, finalMap, monthlyFile?.name || "Monthly Export", file.name);
       }
     } catch (err: any) {
-      setErrorMsg(`Error reading Quarterly File: ${err.message}`);
+      setErrorMsg(`Error reading YTD File: ${err.message}`);
     }
   };
 
@@ -186,22 +186,22 @@ export default function UploadWizard({
       setErrorMsg("Please upload the Monthly Power BI Excel/CSV export first.");
       return;
     }
-    if (!quarterlyRaw) {
-      setErrorMsg("Please upload the Quarterly Power BI Excel/CSV export first.");
+    if (!ytdRaw) {
+      setErrorMsg("Please upload the YTD Power BI Excel/CSV export first.");
       return;
     }
-    if (!monthlyMapping || !quarterlyMapping) {
+    if (!monthlyMapping || !ytdMapping) {
       setErrorMsg("Column mapping configuration is incomplete.");
       return;
     }
 
     processAndSubmit(
       monthlyRaw,
-      quarterlyRaw,
+      ytdRaw,
       monthlyMapping,
-      quarterlyMapping,
+      ytdMapping,
       monthlyFile?.name || "Monthly Export",
-      quarterlyFile?.name || "Quarterly Export"
+      ytdFile?.name || "YTD Export"
     );
   };
 
@@ -220,17 +220,17 @@ export default function UploadWizard({
     }
   };
 
-  const onDragQ = (e: React.DragEvent) => {
+  const onDragY = (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.type === "dragover" || e.type === "dragenter") setDragOverQuarterly(true);
-    else setDragOverQuarterly(false);
+    if (e.type === "dragover" || e.type === "dragenter") setDragOverYtd(true);
+    else setDragOverYtd(false);
   };
 
-  const onDropQ = (e: React.DragEvent) => {
+  const onDropY = (e: React.DragEvent) => {
     e.preventDefault();
-    setDragOverQuarterly(false);
+    setDragOverYtd(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleQuarterlyFile(e.dataTransfer.files[0]);
+      handleYtdFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -245,12 +245,12 @@ export default function UploadWizard({
             </h2>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Drag & drop or select your Monthly and Quarterly Power BI reports.
+            Drag & drop or select your Monthly and YTD half-year target spreadsheets.
           </p>
         </div>
         
         {/* Toggle mappings mapping configuration */}
-        {(monthlyRaw || quarterlyRaw) && (
+        {(monthlyRaw || ytdRaw) && (
           <button
             id="toggle-column-mapping-btn"
             onClick={() => setIsMappingOpen(!isMappingOpen)}
@@ -328,36 +328,36 @@ export default function UploadWizard({
           )}
         </div>
 
-        {/* Quarterly File Input */}
+        {/* YTD File Input */}
         <div
-          id="quarterly-upload-dropzone"
-          onDragOver={onDragQ}
-          onDragEnter={onDragQ}
-          onDragLeave={onDragQ}
-          onDrop={onDropQ}
+          id="ytd-upload-dropzone"
+          onDragOver={onDragY}
+          onDragEnter={onDragY}
+          onDragLeave={onDragY}
+          onDrop={onDropY}
           className={`border-2 border-dashed rounded-xl p-4 transition-all text-center flex flex-col justify-center items-center cursor-pointer min-h-[140px] ${
-            dragOverQuarterly ? "border-[#2D5A4E] bg-[#d8ece5]" : "border-[#C8DCF0] bg-white hover:border-[#2D5A4E]/60"
+            dragOverYtd ? "border-[#2D5A4E] bg-[#d8ece5]" : "border-[#C8DCF0] bg-white hover:border-[#2D5A4E]/60"
           }`}
-          onClick={() => document.getElementById("quarterly-file-input")?.click()}
+          onClick={() => document.getElementById("ytd-file-input")?.click()}
         >
           <input
-            id="quarterly-file-input"
+            id="ytd-file-input"
             type="file"
             accept=".csv,.xlsx,.xls"
             className="hidden"
             onChange={(e) => {
               if (e.target.files && e.target.files[0]) {
-                handleQuarterlyFile(e.target.files[0]);
+                handleYtdFile(e.target.files[0]);
               }
             }}
           />
-          {quarterlyFile ? (
+          {ytdFile ? (
             <div className="flex flex-col items-center">
               <div className="bg-emerald-50 p-2.5 rounded-full mb-2">
                 <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
               </div>
-              <p className="text-xs font-semibold text-gray-800 line-clamp-1 px-2">{quarterlyFile.name}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{(quarterlyFile.size / 1024).toFixed(1)} KB &bull; Quarterly Export</p>
+              <p className="text-xs font-semibold text-gray-800 line-clamp-1 px-2">{ytdFile.name}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{(ytdFile.size / 1024).toFixed(1)} KB &bull; YTD Export</p>
               <div className="mt-2 text-[10px] text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Check className="w-3 h-3" /> Configured
               </div>
@@ -365,12 +365,12 @@ export default function UploadWizard({
           ) : (
             <div className="flex flex-col items-center">
               <UploadCloud className="w-7 h-7 text-[#2D5A4E] mb-2 opacity-85 animate-pulse" />
-              <p className="text-xs font-medium text-gray-700">Quarterly Power BI Export</p>
+              <p className="text-xs font-medium text-gray-700">YTD Performance & Goals Export</p>
               <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">
-                Upload trend file to construct the Quarterly QoQ chart
+                Upload YTD file to configure half-year goals & progress
               </p>
               <span className="text-[10px] text-gray-400 mt-2 font-mono bg-gray-50 px-2 py-0.5 border rounded">
-                {currentQuarterlyFileName.length > 28 ? currentQuarterlyFileName.substring(0, 25) + "..." : currentQuarterlyFileName}
+                {currentYtdFileName.length > 28 ? currentYtdFileName.substring(0, 25) + "..." : currentYtdFileName}
               </span>
             </div>
           )}
@@ -435,36 +435,36 @@ export default function UploadWizard({
               </div>
             )}
 
-            {/* Quarterly column selectors */}
-            {quarterlyRaw && quarterlyMapping ? (
+            {/* YTD column selectors */}
+            {ytdRaw && ytdMapping ? (
               <div>
                 <h4 className="text-xs font-semibold text-gray-800 mb-2 border-l-2 border-[#2D5A4E] pl-2">
-                  Quarterly columns mapping
+                  YTD columns mapping
                 </h4>
                 <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
                   {Object.entries({
                     agentOffice: "Agent Office Location",
                     region: "Region/Market",
-                    quarter: "Quarter Time Series",
-                    totalFundedOPLoans: "Funded OP Loans",
-                    attachRate: "Current Attach Rate",
+                    totalMortgageAttachRate: "YTD Mortgage Attach Rate",
+                    totalRampedMortgageAttachRateGoal: "YTD Ramped Goal",
+                    progressToRampedMortgageAttachRateGoal: "YTD Progress (pp)",
                   }).map(([key, label]) => {
-                    const currentSelected = quarterlyMapping[key as keyof QuarterlyColumnMapping];
+                    const currentSelected = ytdMapping[key as keyof YTDColumnMapping];
                     return (
                       <div key={key} className="flex flex-col gap-1">
                         <label className="text-[11px] font-medium text-[#1C3A32]">{label}</label>
                         <select
-                          value={currentSelected}
+                          value={currentSelected || ""}
                           onChange={(e) => {
-                            setQuarterlyMapping({
-                              ...quarterlyMapping,
+                            setYtdMapping({
+                              ...ytdMapping,
                               [key]: e.target.value
                             });
                           }}
                           className="text-xs border border-gray-300 rounded px-2.5 py-1.5 bg-gray-50 text-gray-700 outline-none focus:border-[#2D5A4E]"
                         >
                           <option value="">-- Manual Select --</option>
-                          {quarterlyRaw.headers.map((h, hIdx) => (
+                          {ytdRaw.headers.map((h, hIdx) => (
                             <option key={hIdx} value={h}>{h}</option>
                           ))}
                         </select>
@@ -475,7 +475,7 @@ export default function UploadWizard({
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-6 border rounded-lg bg-gray-50">
-                <p className="text-xs text-gray-400 text-center">Upload Quarterly Export to adjust layout maps</p>
+                <p className="text-xs text-gray-400 text-center">Upload YTD Export to adjust layout maps</p>
               </div>
             )}
 

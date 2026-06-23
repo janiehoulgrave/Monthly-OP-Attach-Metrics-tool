@@ -14,12 +14,13 @@ import {
   Calendar,
   AlertCircle
 } from "lucide-react";
-import { MonthlyRow, QuarterlyRow } from "./types";
+import { MonthlyRow, YTDRow } from "./types";
 import { REGIONS_LIST, DEFAULT_REGION, getGeneratedSampleDataForRegion } from "./sampleData";
 import UploadWizard from "./components/UploadWizard";
 import EditableTable from "./components/EditableTable";
 import EmailPreview from "./components/EmailPreview";
 import { generateEmailHTML } from "./utils/exporter";
+import { logoBase64 } from "./utils/logo";
 
 export default function App() {
   // Region Selection State
@@ -27,7 +28,7 @@ export default function App() {
 
   // Core Parsed/Editable Data Sets
   const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
-  const [quarterlyRows, setQuarterlyRows] = useState<QuarterlyRow[]>([]);
+  const [ytdRows, setYtdRows] = useState<YTDRow[]>([]);
 
   // Metadata Text Fields (user customizable)
   const [reportingPeriod, setReportingPeriod] = useState<string>("April 2026");
@@ -43,7 +44,7 @@ export default function App() {
 
   // Status indicators for file load
   const [monthlyFileName, setMonthlyFileName] = useState<string>("Preloaded April 2026 Sample Data");
-  const [quarterlyFileName, setQuarterlyFileName] = useState<string>("Preloaded Q2'25 - Q1'26 Sample Data");
+  const [ytdFileName, setYtdFileName] = useState<string>("Preloaded YTD Performance & Goals Data");
   const [isUsingPreloaded, setIsUsingPreloaded] = useState<boolean>(true);
 
   // Active configurations
@@ -57,9 +58,9 @@ export default function App() {
   }, [selectedRegion, isUsingPreloaded]);
 
   const loadPreloadedData = (region: string) => {
-    const { monthly, quarterly } = getGeneratedSampleDataForRegion(region);
+    const { monthly, ytd } = getGeneratedSampleDataForRegion(region);
     setMonthlyRows(monthly);
-    setQuarterlyRows(quarterly);
+    setYtdRows(ytd);
     
     // Adapt tagline based on region
     if (region === DEFAULT_REGION) {
@@ -74,14 +75,14 @@ export default function App() {
   // Callback triggered when files are processed by UploadWizard
   const handleDataParsed = (payload: {
     monthlyRows: MonthlyRow[];
-    quarterlyRows: QuarterlyRow[];
+    ytdRows: YTDRow[];
     monthlyFileName: string;
-    quarterlyFileName: string;
+    ytdFileName: string;
   }) => {
     setMonthlyRows(payload.monthlyRows);
-    setQuarterlyRows(payload.quarterlyRows);
+    setYtdRows(payload.ytdRows);
     setMonthlyFileName(payload.monthlyFileName);
-    setQuarterlyFileName(payload.quarterlyFileName);
+    setYtdFileName(payload.ytdFileName);
     setIsUsingPreloaded(false);
 
     // Dynamic region selection: compile unique regions present in the uploaded monthly rows
@@ -102,13 +103,175 @@ export default function App() {
       }
     }
     
+    setHistory([]); // clear history on fresh import
     triggerToast("Datasets uploaded and mapped successfully!");
+  };
+
+  // Undo state history stack
+  const [history, setHistory] = useState<{ monthlyRows: MonthlyRow[]; ytdRows: YTDRow[] }[]>([]);
+
+  const saveToHistory = (currMonthly: MonthlyRow[], currYtd: YTDRow[]) => {
+    setHistory(prev => {
+      const nextHistory = [...prev, { monthlyRows: currMonthly, ytdRows: currYtd }];
+      // Cap history to 50 states to prevent memory bloat
+      if (nextHistory.length > 50) {
+        return nextHistory.slice(nextHistory.length - 50);
+      }
+      return nextHistory;
+    });
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const lastState = history[history.length - 1];
+    setMonthlyRows(lastState.monthlyRows);
+    setYtdRows(lastState.ytdRows);
+    setHistory(prev => prev.slice(0, prev.length - 1));
+    triggerToast("Undid last change successfully!");
   };
 
   // Update a single cell in our monthly rows (inline table editing)
   const handleRowUpdate = (updatedRow: MonthlyRow) => {
+    const originalRow = monthlyRows.find(r => r.id === updatedRow.id);
+    if (!originalRow) return;
+
+    saveToHistory(monthlyRows, ytdRows);
+
     setMonthlyRows(prev => prev.map(row => row.id === updatedRow.id ? updatedRow : row));
-    triggerToast(`Updated ${updatedRow.agentOffice} cells`);
+
+    // Also update corresponding ytdRow to keep joins active and consistent
+    setYtdRows(prev => prev.map(yRow => {
+      const isMatch = yRow.region.toLowerCase().trim() === originalRow.region.toLowerCase().trim() &&
+                      yRow.agentOffice.toLowerCase().trim() === originalRow.agentOffice.toLowerCase().trim();
+      if (isMatch) {
+        return {
+          ...yRow,
+          agentOffice: updatedRow.agentOffice,
+          totalMortgageAttachRate: updatedRow.firstHalfAttachRate,
+          totalRampedMortgageAttachRateGoal: updatedRow.firstHalfTarget,
+          progressToRampedMortgageAttachRateGoal: updatedRow.progressToGoal
+        };
+      }
+      return yRow;
+    }));
+
+    triggerToast(`Updated ${updatedRow.agentOffice}`);
+  };
+
+  // Add a new custom office row to the active region
+  const handleRowAdd = () => {
+    saveToHistory(monthlyRows, ytdRows);
+
+    const newId = `monthly_row_${Date.now()}`;
+    const officesCount = monthlyRows.filter(r => r.region.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && !r.isTotalRow).length;
+    const defaultOfficeName = `New Office ${officesCount + 1}`;
+
+    const newMonthlyRow: MonthlyRow = {
+      id: newId,
+      agentOffice: defaultOfficeName,
+      region: selectedRegion,
+      totalFundedOPLoans: 0,
+      totalBuysideDeals: 0,
+      attachRate: 0,
+      firstHalfAttachRate: 0,
+      firstHalfTarget: 2.50, // default target rate
+      progressToGoal: -2.50
+    };
+
+    const newYTDRow: YTDRow = {
+      id: `ytd_row_${Date.now()}`,
+      agentOffice: defaultOfficeName,
+      region: selectedRegion,
+      totalMortgageAttachRate: 0,
+      totalRampedMortgageAttachRateGoal: 2.50,
+      progressToRampedMortgageAttachRateGoal: -2.50
+    };
+
+    setMonthlyRows(prev => [...prev, newMonthlyRow]);
+    setYtdRows(prev => [...prev, newYTDRow]);
+
+    triggerToast(`Added ${defaultOfficeName}`);
+  };
+
+  // Delete an existing office row from the active region
+  const handleRowDelete = (rowId: string) => {
+    const rowToDelete = monthlyRows.find(r => r.id === rowId);
+    if (!rowToDelete) return;
+
+    saveToHistory(monthlyRows, ytdRows);
+
+    setMonthlyRows(prev => prev.filter(r => r.id !== rowId));
+
+    // Clean up corresponding YTD entries as well
+    setYtdRows(prev => prev.filter(y => 
+      !(y.region.toLowerCase().trim() === rowToDelete.region.toLowerCase().trim() &&
+        y.agentOffice.toLowerCase().trim() === rowToDelete.agentOffice.toLowerCase().trim())
+    ));
+
+    triggerToast(`Removed ${rowToDelete.agentOffice}`);
+  };
+
+  // Reorder standard office rows within the active region
+  const handleRowsReorder = (reorderedOffices: MonthlyRow[]) => {
+    saveToHistory(monthlyRows, ytdRows);
+
+    // 1. Reorder monthlyRows:
+    // We replace the standard offices of the active region with the new ordered standard offices.
+    // Keep other regions' rows and totals in their relative places.
+    setMonthlyRows(prev => {
+      const result: MonthlyRow[] = [];
+      let officeInsertIdx = 0;
+
+      prev.forEach(row => {
+        const isFromActiveRegion = row.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
+        const isStandardOffice = isFromActiveRegion && !row.isTotalRow;
+
+        if (isStandardOffice) {
+          if (officeInsertIdx < reorderedOffices.length) {
+            result.push(reorderedOffices[officeInsertIdx]);
+            officeInsertIdx++;
+          }
+        } else {
+          result.push(row);
+        }
+      });
+      return result;
+    });
+
+    // 2. Reorder ytdRows:
+    // We match the order of the newly reordered active offices to keep the trend chart and table aligned!
+    setYtdRows(prev => {
+      const result: YTDRow[] = [];
+      const activeYtdRows = prev.filter(y => y.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim());
+
+      prev.forEach(yRow => {
+        const isFromActiveRegion = yRow.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
+        if (!isFromActiveRegion) {
+          result.push(yRow);
+        }
+      });
+
+      // Now insert active YTD rows in the sequence of reorderedOffices
+      reorderedOffices.forEach(mRow => {
+        const match = activeYtdRows.find(y => y.agentOffice?.toLowerCase().trim() === mRow.agentOffice?.toLowerCase().trim());
+        if (match) {
+          result.push(match);
+        } else {
+          result.push({
+            id: `ytd_row_reorder_${Date.now()}_${Math.random()}`,
+            agentOffice: mRow.agentOffice,
+            region: selectedRegion,
+            totalMortgageAttachRate: mRow.firstHalfAttachRate,
+            totalRampedMortgageAttachRateGoal: mRow.firstHalfTarget,
+            progressToRampedMortgageAttachRateGoal: mRow.progressToGoal
+          });
+        }
+      });
+
+      return result;
+    });
+
+    triggerToast("Reordered offices successfully!");
   };
 
   const triggerToast = (msg: string) => {
@@ -119,31 +282,89 @@ export default function App() {
   const handleResetData = () => {
     setIsUsingPreloaded(true);
     setMonthlyFileName("Preloaded April 2026 Sample Data");
-    setQuarterlyFileName("Preloaded Q2'25 - Q1'26 Sample Data");
+    setYtdFileName("Preloaded YTD Performance & Goals Data");
     setSelectedRegion(DEFAULT_REGION);
+    setHistory([]); // reset history on data reset
     loadPreloadedData(DEFAULT_REGION);
     triggerToast("Reset back to beautiful preloaded sample data!");
   };
 
   // FILTER LOGIC & DERIVATION of KPIs
+  // Dynamic merge of monthly and YTD rows
+  const mergedMonthlyRows = monthlyRows.map(mRow => {
+    // Find matching YTD row by agentOffice and region (case insensitive)
+    const match = ytdRows.find(y => 
+      y.region.toLowerCase().trim() === mRow.region.toLowerCase().trim() &&
+      y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
+    );
+    if (match) {
+      return {
+        ...mRow,
+        firstHalfAttachRate: match.totalMortgageAttachRate,
+        firstHalfTarget: match.totalRampedMortgageAttachRateGoal,
+        progressToGoal: match.progressToRampedMortgageAttachRateGoal
+      };
+    }
+    return mRow;
+  });
+
   // Derive list of available regions depending on whether we are using preloaded or uploaded datasets
-  const parsedRegions = Array.from(new Set(monthlyRows.map(r => r.region).filter(Boolean))).sort();
+  const parsedRegions = Array.from(new Set(mergedMonthlyRows.map(r => r.region).filter(Boolean))).sort();
   const availableRegions = isUsingPreloaded
     ? REGIONS_LIST
     : parsedRegions.length > 0
     ? parsedRegions
     : REGIONS_LIST;
 
-  const currentRegionMonthlyRows = monthlyRows.filter(
-    r => r.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim()
+  // Filter for raw rows of the selected region that have a non-empty office name
+  const rawCurrentRegionRows = mergedMonthlyRows.filter(
+    r => r.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && r.agentOffice.trim() !== ""
   );
 
   // Divide into standard office rows and summary totals
-  const offices = currentRegionMonthlyRows.filter(r => !r.isTotalRow);
-  const totals = currentRegionMonthlyRows.filter(r => !!r.isTotalRow);
+  const offices = rawCurrentRegionRows.filter(r => !r.isTotalRow);
+  const explicitTotals = rawCurrentRegionRows.filter(r => !!r.isTotalRow);
 
-  // Primary Aggregate Row representation
-  const primaryTotalRow = totals[0] || currentRegionMonthlyRows[0];
+  const hasExplicitTotalRow = explicitTotals.length > 0;
+
+  // Dynamically compute a total row if no explicit total exists in the uploaded dataset for this region
+  const sumBuyside = offices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+  const sumFunded = offices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+  const calculatedAttachRate = sumBuyside > 0 ? parseFloat(((sumFunded / sumBuyside) * 100).toFixed(2)) : 0;
+
+  const validFirstHalfRates = offices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
+  const avgFirstHalfRate = validFirstHalfRates.length > 0 
+    ? parseFloat((validFirstHalfRates.reduce((sum, v) => sum + v, 0) / validFirstHalfRates.length).toFixed(2))
+    : calculatedAttachRate;
+
+  const validTargets = offices.map(r => r.firstHalfTarget).filter(t => t > 0);
+  const avgFirstHalfTarget = validTargets.length > 0
+    ? parseFloat((validTargets.reduce((sum, v) => sum + v, 0) / validTargets.length).toFixed(2))
+    : 2.50; // fallback standard goal target
+
+  const progressToGoalValFromAttach = parseFloat((calculatedAttachRate - avgFirstHalfTarget).toFixed(1));
+
+  const computedTotalRow: MonthlyRow = {
+    id: `computed-total-${selectedRegion.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Date.now()}`,
+    agentOffice: `${selectedRegion} Total`,
+    region: selectedRegion,
+    totalFundedOPLoans: sumFunded,
+    totalBuysideDeals: sumBuyside,
+    attachRate: calculatedAttachRate,
+    firstHalfAttachRate: avgFirstHalfRate,
+    firstHalfTarget: avgFirstHalfTarget,
+    progressToGoal: progressToGoalValFromAttach,
+    isTotalRow: true
+  };
+
+  const totals = hasExplicitTotalRow ? explicitTotals : [computedTotalRow];
+  const primaryTotalRow = totals[0];
+
+  // Finalized currentRegionMonthlyRows list which ensures standard offices + exactly 1 total row (explicit or computed)
+  const currentRegionMonthlyRows = [
+    ...offices,
+    ...totals
+  ];
   
   // 1. Regional Attach Rate
   const regionalAttachRate = primaryTotalRow ? `${primaryTotalRow.attachRate.toFixed(2)}%` : "0.00%";
@@ -200,7 +421,6 @@ export default function App() {
         disclaimer,
         thankYouText,
         monthlyRows: currentRegionMonthlyRows,
-        chartBase64: "",
         kpis: {
           regionalAttachRate,
           regionalAttachDiff,
@@ -292,7 +512,7 @@ export default function App() {
         <UploadWizard 
           onDataParsed={handleDataParsed}
           currentMonthlyFileName={monthlyFileName}
-          currentQuarterlyFileName={quarterlyFileName}
+          currentYtdFileName={ytdFileName}
         />
 
         {/* REPORT METADATA CONFIGURATION CONTROLS */}
@@ -403,7 +623,7 @@ export default function App() {
                 {/* 2. Progress to 1H Goal */}
                 <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
                   <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
-                    1H Goal Progress
+                    1H Goal Progress (pp)
                   </span>
                   <div className="my-2.5">
                     <span className={`font-serif text-3xl font-bold leading-none ${progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"}`}>
@@ -492,7 +712,12 @@ export default function App() {
               <EditableTable 
                 rows={currentRegionMonthlyRows}
                 onRowUpdate={handleRowUpdate}
+                onRowDelete={handleRowDelete}
+                onRowAdd={handleRowAdd}
+                onUndo={handleUndo}
+                canUndo={history.length > 0}
                 reportingPeriod={reportingPeriod}
+                onRowsReorder={handleRowsReorder}
               />
             )}
 
@@ -604,8 +829,6 @@ export default function App() {
                     </div>
 
                   </div>
-
-                  {/* Trend chart removed for now */}
 
                   {/* Data summary table preview */}
                   <div className="border-t border-[#C8DCF0] pt-4.5">

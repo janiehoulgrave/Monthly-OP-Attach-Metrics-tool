@@ -8,7 +8,7 @@ interface ExporterParams {
   disclaimer: string;
   thankYouText: string;
   monthlyRows: MonthlyRow[];
-  chartBase64: string;
+  chartBase64?: string;
   kpis: {
     regionalAttachRate: string;
     regionalAttachDiff: string;
@@ -137,7 +137,7 @@ export function generateEmailHTML({
 
                   <!-- Card 2: 1H Goal Progress -->
                   <td width="19%" valign="top" style="background-color:#EDF4FB; border: 1px solid #C8DCF0; border-radius:10px; padding:12px 8px; text-align:center;">
-                    <p style="margin: 0 0 6px 0; font-size: 8px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: #2D5A4E; font-family: Arial, sans-serif; line-height: 1.2; min-height: 20px;">1H GOAL<br/>PROGRESS</p>
+                    <p style="margin: 0 0 6px 0; font-size: 8px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: #2D5A4E; font-family: Arial, sans-serif; line-height: 1.2; min-height: 20px;">1H GOAL<br/>PROGRESS (pp)</p>
                     <p style="margin: 0 0 4px 0; font-family: Georgia, serif; font-size: 18px; font-weight: bold; color: ${kpis.isProgressPositive ? '#1A7A3C' : '#C0392B'}; line-height: 1;">${kpis.progressToGoal}</p>
                     <p style="margin: 0; font-size: 10px; color:#999999; font-family: Arial, sans-serif; line-height: 1.1;">${kpis.progressText}</p>
                   </td>
@@ -170,18 +170,6 @@ export function generateEmailHTML({
                   </td>
                 </tr>
               </table>
-
-              <!-- TREND CHART (Quarterly QoQ) -->
-              ${chartBase64 ? `
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px; border-top:1px solid #C8DCF0; padding-top:16px;">
-                <tr>
-                  <td>
-                    <p style="margin: 0 0 8px 0; font-size: 10px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; color: #2D5A4E; font-family: Arial, sans-serif;">QUARTERLY ATTACH RATE TREND (QoQ)</p>
-                    <img src="${chartBase64}" width="560" height="224" alt="Quarterly QoQ Trend Chart" style="width:560px; height:auto; display:block; border:1px solid #C8DCF0; border-radius:10px; outline:none; text-decoration:none;" />
-                  </td>
-                </tr>
-              </table>
-              ` : ''}
 
               <!-- ATTACH RATE DATA SUMMARY TABLE -->
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid #C8DCF0; padding-top: 16px;">

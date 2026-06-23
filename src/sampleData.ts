@@ -1,4 +1,4 @@
-import { MonthlyRow, QuarterlyRow } from "./types";
+import { MonthlyRow, YTDRow } from "./types";
 
 export const REGIONS_LIST = [
   "Greater Dallas",
@@ -21,7 +21,7 @@ export const REGIONS_LIST = [
   "New England"
 ];
 
-export const DEFAULT_REGION = "Washington, DC Area + Baltimore";
+export const DEFAULT_REGION = REGIONS_LIST[0]; // "Greater Dallas"
 
 // Washington, DC Area + Baltimore sample monthly rows
 export const SAMPLE_MONTH_ROWS_DC: MonthlyRow[] = [
@@ -117,49 +117,20 @@ export const SAMPLE_MONTH_ROWS_DC: MonthlyRow[] = [
   }
 ];
 
-// Washington, DC Area + Baltimore sample quarterly rows (multiple offices, multiple quarters)
-export const SAMPLE_QUARTER_ROWS_DC: QuarterlyRow[] = [
-  // Capitol Hill
-  { id: "q-dc-ch-1", agentOffice: "Capitol Hill", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 4, attachRate: 4.90 },
-  { id: "q-dc-ch-2", agentOffice: "Capitol Hill", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 3, attachRate: 5.10 },
-  { id: "q-dc-ch-3", agentOffice: "Capitol Hill", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 5, attachRate: 5.50 },
-  { id: "q-dc-ch-4", agentOffice: "Capitol Hill", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 3, attachRate: 5.70 },
-  
-  // McLean
-  { id: "q-dc-m-1", agentOffice: "McLean", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 3, attachRate: 5.80 },
-  { id: "q-dc-m-2", agentOffice: "McLean", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 2, attachRate: 6.00 },
-  { id: "q-dc-m-3", agentOffice: "McLean", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 4, attachRate: 6.20 },
-  { id: "q-dc-m-4", agentOffice: "McLean", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 2, attachRate: 6.70 },
-
-  // Ellicott City
-  { id: "q-dc-ec-1", agentOffice: "Ellicott City", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 5, attachRate: 11.20 },
-  { id: "q-dc-ec-2", agentOffice: "Ellicott City", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 4, attachRate: 12.50 },
-  { id: "q-dc-ec-3", agentOffice: "Ellicott City", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 6, attachRate: 13.10 },
-  { id: "q-dc-ec-4", agentOffice: "Ellicott City", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 4, attachRate: 14.50 },
-
-  // Annapolis
-  { id: "q-dc-a-1", agentOffice: "Annapolis", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 2, attachRate: 5.20 },
-  { id: "q-dc-a-2", agentOffice: "Annapolis", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 1, attachRate: 4.80 },
-  { id: "q-dc-a-3", agentOffice: "Annapolis", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 3, attachRate: 4.50 },
-  { id: "q-dc-a-4", agentOffice: "Annapolis", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 1, attachRate: 4.00 },
-
-  // DC Area total
-  { id: "q-dc-tot-1", agentOffice: "DC Area total", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 22, attachRate: 2.30 },
-  { id: "q-dc-tot-2", agentOffice: "DC Area total", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 20, attachRate: 2.45 },
-  { id: "q-dc-tot-3", agentOffice: "DC Area total", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 28, attachRate: 2.65 },
-  { id: "q-dc-tot-4", agentOffice: "DC Area total", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 26, attachRate: 2.72 },
-
-  // Baltimore total
-  { id: "q-dc-bt-1", agentOffice: "Baltimore total", region: "Washington, DC Area + Baltimore", quarter: "Q2 2025", totalFundedOPLoans: 4, attachRate: 3.50 },
-  { id: "q-dc-bt-2", agentOffice: "Baltimore total", region: "Washington, DC Area + Baltimore", quarter: "Q3 2025", totalFundedOPLoans: 6, attachRate: 3.90 },
-  { id: "q-dc-bt-3", agentOffice: "Baltimore total", region: "Washington, DC Area + Baltimore", quarter: "Q4 2025", totalFundedOPLoans: 3, attachRate: 4.20 },
-  { id: "q-dc-bt-4", agentOffice: "Baltimore total", region: "Washington, DC Area + Baltimore", quarter: "Q1 2026", totalFundedOPLoans: 5, attachRate: 4.07 }
+// Washington, DC Area + Baltimore sample YTD rows
+export const SAMPLE_YTD_ROWS_DC: YTDRow[] = [
+  { id: "ytd-dc-1", agentOffice: "Capitol Hill", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 4.70, totalRampedMortgageAttachRateGoal: 3.80, progressToRampedMortgageAttachRateGoal: 0.9 },
+  { id: "ytd-dc-2", agentOffice: "Georgetown", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 0.0, totalRampedMortgageAttachRateGoal: 2.70, progressToRampedMortgageAttachRateGoal: -2.7 },
+  { id: "ytd-dc-3", agentOffice: "McLean", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 4.60, totalRampedMortgageAttachRateGoal: 3.50, progressToRampedMortgageAttachRateGoal: 1.1 },
+  { id: "ytd-dc-4", agentOffice: "Ellicott City", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 11.70, totalRampedMortgageAttachRateGoal: 8.60, progressToRampedMortgageAttachRateGoal: 3.0 },
+  { id: "ytd-dc-5", agentOffice: "Annapolis", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 4.80, totalRampedMortgageAttachRateGoal: 5.60, progressToRampedMortgageAttachRateGoal: -0.8 },
+  { id: "ytd-dc-6", agentOffice: "Logan Circle", region: "Washington, DC Area + Baltimore", totalMortgageAttachRate: 0.0, totalRampedMortgageAttachRateGoal: 4.00, progressToRampedMortgageAttachRateGoal: -4.0 }
 ];
 
 // Helper to generate realistic random data for any region list if uploaded files aren't set yet
-export const getGeneratedSampleDataForRegion = (regionName: string): { monthly: MonthlyRow[], quarterly: QuarterlyRow[] } => {
+export const getGeneratedSampleDataForRegion = (regionName: string): { monthly: MonthlyRow[], ytd: YTDRow[] } => {
   if (regionName === "Washington, DC Area + Baltimore") {
-    return { monthly: SAMPLE_MONTH_ROWS_DC, quarterly: SAMPLE_QUARTER_ROWS_DC };
+    return { monthly: SAMPLE_MONTH_ROWS_DC, ytd: SAMPLE_YTD_ROWS_DC };
   }
 
   // Generate similar looking realistic data based on name to make checking interactive and dynamic
@@ -214,24 +185,20 @@ export const getGeneratedSampleDataForRegion = (regionName: string): { monthly: 
 
   monthly.push(totalRow);
 
-  // Generate quarterly
-  const quarters = ["Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026"];
-  const quarterly: QuarterlyRow[] = [];
-
-  offices.concat([`${regionName} Total`]).forEach((office, oIdx) => {
-    quarters.forEach((q, qIdx) => {
-      const baseAttachRate = oIdx === 4 ? averageAttachRate : (oIdx === 3 ? 0 : 4.2);
-      const randOffset = Math.sin(oIdx + qIdx) * 0.8;
-      quarterly.push({
-        id: `q-${prefix}-${oIdx}-${qIdx}`,
-        agentOffice: office,
-        region: regionName,
-        quarter: q,
-        totalFundedOPLoans: oIdx === 4 ? sumLoans - 2 : (oIdx === 3 ? 0 : 3),
-        attachRate: Math.max(0, parseFloat((baseAttachRate + randOffset).toFixed(2)))
-      });
-    });
+  // Generate YTD rows
+  const ytd: YTDRow[] = offices.map((office, idx) => {
+    const baseTarget = 3.5;
+    const baseAttachRate = idx === 3 ? 0 : parseFloat((4.5 + Math.sin(idx) * 1.5).toFixed(2));
+    const progress = parseFloat((baseAttachRate - baseTarget).toFixed(1));
+    return {
+      id: `ytd-${prefix}-${idx}`,
+      agentOffice: office,
+      region: regionName,
+      totalMortgageAttachRate: baseAttachRate,
+      totalRampedMortgageAttachRateGoal: baseTarget,
+      progressToRampedMortgageAttachRateGoal: progress
+    };
   });
 
-  return { monthly, quarterly };
+  return { monthly, ytd };
 };

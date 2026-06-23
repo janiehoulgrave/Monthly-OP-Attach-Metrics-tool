@@ -11,13 +11,13 @@ export interface MonthlyRow {
   id: string; // unique identifier
 }
 
-export interface QuarterlyRow {
+export interface YTDRow {
   agentOffice: string;
   region: string;
-  quarter: string; // e.g. "Q1 2026"
-  totalFundedOPLoans: number;
-  attachRate: number; // as float e.g. 5.70
-  id: string;
+  totalMortgageAttachRate: number; // as float e.g. 5.70
+  totalRampedMortgageAttachRateGoal: number; // as float e.g. 2.50
+  progressToRampedMortgageAttachRateGoal: number; // e.g. +3.2 or -1.5
+  id: string; // unique identifier
 }
 
 export interface MonthlyColumnMapping {
@@ -31,12 +31,12 @@ export interface MonthlyColumnMapping {
   progressToGoal: string;
 }
 
-export interface QuarterlyColumnMapping {
+export interface YTDColumnMapping {
   agentOffice: string;
   region: string;
-  quarter: string;
-  totalFundedOPLoans: string;
-  attachRate: string;
+  totalMortgageAttachRate: string;
+  totalRampedMortgageAttachRateGoal: string;
+  progressToRampedMortgageAttachRateGoal: string;
 }
 
 export interface RegionReport {
@@ -46,5 +46,5 @@ export interface RegionReport {
   disclaimer: string;
   thankYouText: string;
   monthlyRows: MonthlyRow[];
-  quarterlyRows: QuarterlyRow[];
+  ytdRows: YTDRow[];
 }
