@@ -12,7 +12,10 @@ import {
   Sparkles, 
   Info,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  LogOut,
+  Users,
+  Shield
 } from "lucide-react";
 import { MonthlyRow, YTDRow } from "./types";
 import { REGIONS_LIST, DEFAULT_REGION, getGeneratedSampleDataForRegion } from "./sampleData";
@@ -21,10 +24,33 @@ import EditableTable from "./components/EditableTable";
 import EmailPreview from "./components/EmailPreview";
 import { generateEmailHTML } from "./utils/exporter";
 import { logoBase64 } from "./utils/logo";
+import { User, signOut, onAuthStateChanged } from "firebase/auth";
+import { auth } from "./firebase";
+import Login from "./components/Login";
+import ApprovedUsersModal from "./components/ApprovedUsersModal";
 
 export default function App() {
+  // Authentication & Control State
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [isUsersModalOpen, setIsUsersModalOpen] = useState<boolean>(false);
+
+  // Monitor Firebase Auth state on mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Login component will handle the verification and call onAuthSuccess.
+      // We only clear the user immediately if they signed out.
+      if (!user) {
+        setCurrentUser(null);
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Region Selection State
   const [selectedRegion, setSelectedRegion] = useState<string>(DEFAULT_REGION);
+
 
   // Core Parsed/Editable Data Sets
   const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
@@ -445,6 +471,34 @@ export default function App() {
     }
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setCurrentUser(null);
+    } catch (err) {
+      console.error("Error signing out: ", err);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#F4F7F6] flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center max-w-sm w-full bg-white rounded-2xl border border-[#C8DCF0] p-10 shadow-sm text-center">
+          <div className="w-12 h-12 rounded-full bg-[#EAF2ED] flex items-center justify-center mb-4 animate-pulse">
+            <Shield className="h-6 w-6 text-[#2D5A4E]" />
+          </div>
+          <h3 className="font-serif text-[#2D5A4E] font-semibold text-lg mb-2">Verifying session...</h3>
+          <p className="text-xs text-gray-500 mb-4">Securing your session. Please wait...</p>
+          <div className="w-8 h-8 border-4 border-[#2D5A4E] border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <Login onAuthSuccess={(user) => setCurrentUser(user)} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-[#1C1C1C] flex flex-col font-sans antialiased">
       
@@ -491,6 +545,51 @@ export default function App() {
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset to Sample</span>
               </button>
+            )}
+
+            {/* Google User Auth Profile Widget */}
+            {currentUser && (
+              <div className="flex items-center gap-2.5 pl-3 border-l border-white/20">
+                <button
+                  onClick={() => setIsUsersModalOpen(true)}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold py-2 px-3 rounded-lg border border-white/20 hover:bg-white/10 text-white transition-all cursor-pointer"
+                  title="Manage authorized users list"
+                >
+                  <Users className="w-3.5 h-3.5 text-[#EDF4FB]/90" />
+                  <span className="hidden sm:inline">Approved Users</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {currentUser.photoURL ? (
+                    <img
+                      src={currentUser.photoURL}
+                      alt={currentUser.displayName || "User Avatar"}
+                      className="w-7 h-7 rounded-full border border-white/20 shadow-xs"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-xs font-bold font-mono">
+                      {(currentUser.email || "U").substring(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="hidden lg:flex flex-col text-left">
+                    <span className="text-[11px] font-semibold text-[#EDF4FB] max-w-[140px] truncate leading-tight">
+                      {currentUser.displayName || currentUser.email?.split("@")[0]}
+                    </span>
+                    <span className="text-[9px] text-[#EDF4FB]/60 leading-none truncate max-w-[140px]">
+                      {currentUser.email}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center justify-center p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-red-700/30 hover:border-red-500/30 text-white transition-all cursor-pointer"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -897,6 +996,13 @@ export default function App() {
         </div>
 
       </main>
+
+      {/* Approved Users Management Modal overlay */}
+      <ApprovedUsersModal
+        isOpen={isUsersModalOpen}
+        onClose={() => setIsUsersModalOpen(false)}
+        currentUserEmail={currentUser?.email || ""}
+      />
 
     </div>
   );
