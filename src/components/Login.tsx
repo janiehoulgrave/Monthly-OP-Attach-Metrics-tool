@@ -54,19 +54,17 @@ export default function Login({ onAuthSuccess }: LoginProps) {
       }
 
       // Check Firestore to see if approved users list has any entries.
-      // If it's empty, we seed the list with 2 default approved users (including the requester).
-      const approvedCollectionRef = collection(db, "approved_users");
-      const snapshot = await getDocs(approvedCollectionRef);
-      
-      if (snapshot.empty) {
-        // Seed default 2 approved users
-        const defaultUsers = [
-          "janie.houlgrave@compass.com",
-          "approved2@compass.com"
-        ];
-        
-        for (const defaultEmail of defaultUsers) {
-          await setDoc(doc(db, "approved_users", defaultEmail.toLowerCase().trim()), {
+      // We will make sure the two default users are always seeded if they don't exist.
+      const defaultUsers = [
+        "janie.houlgrave@compass.com",
+        "alex.mcdowell@compass.com"
+      ];
+
+      for (const defaultEmail of defaultUsers) {
+        const dDocRef = doc(db, "approved_users", defaultEmail.toLowerCase().trim());
+        const dDocSnap = await getDoc(dDocRef);
+        if (!dDocSnap.exists()) {
+          await setDoc(dDocRef, {
             email: defaultEmail.toLowerCase().trim(),
             role: "editor",
             addedAt: new Date().toISOString(),
