@@ -130,8 +130,8 @@ export function mapMonthlyRows(
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
-    const totalFunded = parseNumber(row[mapping.totalFundedOPLoans]);
-    const totalBuyside = parseNumber(row[mapping.totalBuysideDeals]);
+    const totalFunded = Math.round(parseNumber(row[mapping.totalFundedOPLoans]));
+    const totalBuyside = Math.round(parseNumber(row[mapping.totalBuysideDeals]));
     
     // Default attachRate formula: if they provide it parse it, otherwise compute it:
     let attachRate = 0;
