@@ -104,9 +104,7 @@ export default function App() {
 
   // Metadata Text Fields (user customizable)
   const [reportingPeriod, setReportingPeriod] = useState<string>("April 2026");
-  const [tagline, setTagline] = useState<string>(
-    "Results trending ahead of plan on path to exceed first-half goals."
-  );
+  const [tagline, setTagline] = useState<string>("");
   const [disclaimer, setDisclaimer] = useState<string>(
     "In certain cases, market totals include transactions from all regional offices (including those unlisted), which may result in minor variances between office-level aggregates and total market Attach Rates."
   );
@@ -137,10 +135,10 @@ export default function App() {
     // Adapt tagline based on region
     if (region === DEFAULT_REGION) {
       setReportingPeriod("April 2026");
-      setTagline("Results trending ahead of plan on path to exceed first-half goals.");
+      setTagline("");
     } else {
       setReportingPeriod("Q2 2026 Period");
-      setTagline("Continuous operational expansion shows robust performance trending above targets.");
+      setTagline("");
     }
   };
 
@@ -152,6 +150,16 @@ export default function App() {
     ytdFileName?: string;
   }) => {
     setIsUsingPreloaded(false);
+
+    // Auto-populate reporting period with previous month and current year based on when data is uploaded
+    const currentDate = new Date();
+    const prevMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    const previousMonthName = prevMonthDate.toLocaleString('default', { month: 'long' });
+    const currentYearValue = prevMonthDate.getFullYear();
+    setReportingPeriod(`${previousMonthName} ${currentYearValue}`);
+
+    // Set tagline to empty string on fresh upload
+    setTagline("");
 
     let nextMonthly = monthlyRows;
     if (payload.monthlyRows) {
