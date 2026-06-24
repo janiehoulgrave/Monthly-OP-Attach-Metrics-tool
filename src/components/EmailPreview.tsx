@@ -152,7 +152,10 @@ export default function EmailPreview({
 
             {/* OriginPoint Logo with support for physical logo.png from repository public folder */}
             <img
-              src={logoBase64}
+              src="/logo.png"
+              onError={(e) => {
+                e.currentTarget.src = logoBase64;
+              }}
               className="h-[38px] w-auto border-none mb-3 outline-none block"
               alt="OriginPoint Logo"
             />
