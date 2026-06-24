@@ -136,6 +136,87 @@ export function normalizeRegionName(regionName: string): string {
   return regionName;
 }
 
+// Cleans office name to remove regional references, parenthesized regions, or prefixes
+export function getSimpleOfficeName(officeName: string, regionName: string): string {
+  if (!officeName) return "N/A";
+  let name = officeName.trim();
+
+  // 1. Remove parenthesized region or metadata, e.g. "Ellicott City (Washington, DC Area)" -> "Ellicott City"
+  const parenRegex = /\(([^)]+)\)/g;
+  name = name.replace(parenRegex, (match, content) => {
+    const cLower = content.toLowerCase();
+    if (
+      cLower.includes("area") || 
+      cLower.includes("baltimore") || 
+      cLower.includes("washington") || 
+      cLower.includes("dc") ||
+      cLower.includes("dallas") ||
+      cLower.includes("region") ||
+      cLower.includes("market")
+    ) {
+      return "";
+    }
+    return match;
+  }).trim();
+
+  // 2. Handle delimiters like " - ", " – ", " | ", " / ", " : ", " — "
+  const delimiters = [" - ", " – ", " | ", " / ", " : ", "—"];
+  for (const delim of delimiters) {
+    if (name.includes(delim)) {
+      const parts = name.split(delim).map(p => p.trim());
+      const isRegionPart = (part: string) => {
+        const pLower = part.toLowerCase();
+        const rLower = regionName ? regionName.toLowerCase() : "";
+        return (
+          pLower === rLower ||
+          rLower.includes(pLower) ||
+          pLower.includes("washington") ||
+          pLower.includes("baltimore") ||
+          pLower.includes("dc area") ||
+          pLower.includes("dallas") ||
+          pLower.includes("region") ||
+          pLower.includes("market") ||
+          pLower.includes("total")
+        );
+      };
+
+      const nonRegionParts = parts.filter(p => !isRegionPart(p));
+      if (nonRegionParts.length > 0) {
+        name = nonRegionParts[0];
+        break;
+      }
+    }
+  }
+
+  // Also handle cases where there's a dash without spaces e.g. "Washington-Baltimore" or "Ellicott City-DC"
+  if (name.includes("-")) {
+    const parts = name.split("-").map(p => p.trim());
+    const isRegionPart = (part: string) => {
+      const pLower = part.toLowerCase();
+      const rLower = regionName ? regionName.toLowerCase() : "";
+      return (
+        pLower === rLower ||
+        rLower.includes(pLower) ||
+        pLower.includes("washington") ||
+        pLower.includes("baltimore") ||
+        pLower.includes("dc area") ||
+        pLower.includes("dallas") ||
+        pLower.includes("region") ||
+        pLower.includes("market")
+      );
+    };
+    const nonRegionParts = parts.filter(p => !isRegionPart(p));
+    if (nonRegionParts.length > 0) {
+      name = nonRegionParts[0];
+    }
+  }
+
+  // Clean up any double spaces, trailing commas, or delimiters
+  name = name.replace(/[,-\s|/:]+$/, "").replace(/^[,-\s|/:]+/, "").trim();
+
+  return name || officeName.trim();
+}
+
 // Parse monthly data
 export function mapMonthlyRows(
   jsonData: any[],

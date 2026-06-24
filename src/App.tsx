@@ -20,7 +20,7 @@ import {
 import { MonthlyRow, YTDRow } from "./types";
 import { REGIONS_LIST, DEFAULT_REGION, getGeneratedSampleDataForRegion } from "./sampleData";
 import UploadWizard from "./components/UploadWizard";
-import { extractMonthYearFromFilename } from "./utils/parser";
+import { extractMonthYearFromFilename, getSimpleOfficeName } from "./utils/parser";
 import EditableTable from "./components/EditableTable";
 import EmailPreview from "./components/EmailPreview";
 import { generateEmailHTML } from "./utils/exporter";
@@ -507,7 +507,7 @@ export default function App() {
     : offices.length > 0 ? [...offices].sort((a,b) => b.attachRate - a.attachRate)[0] : null;
   
   const topOfficeRate = topOffice ? `${topOffice.attachRate.toFixed(1)}%` : "0.0%";
-  const topOfficeName = topOffice ? topOffice.agentOffice : "N/A";
+  const topOfficeName = topOffice ? getSimpleOfficeName(topOffice.agentOffice, selectedRegion) : "N/A";
 
   // 5. Most Improved Office (highest progressToGoal pp value among offices)
   const mostImprovedOffice = offices.length > 0
@@ -517,7 +517,7 @@ export default function App() {
   const mostImprovedDiff = mostImprovedOffice 
     ? `${mostImprovedOffice.progressToGoal >= 0 ? "+" : ""}${mostImprovedOffice.progressToGoal.toFixed(1)} pp` 
     : "0.0 pp";
-  const mostImprovedName = mostImprovedOffice ? mostImprovedOffice.agentOffice : "N/A";
+  const mostImprovedName = mostImprovedOffice ? getSimpleOfficeName(mostImprovedOffice.agentOffice, selectedRegion) : "N/A";
 
   // Target rate for trend chart drawing
   const targetRate = primaryTotalRow ? primaryTotalRow.firstHalfTarget : 2.5;
