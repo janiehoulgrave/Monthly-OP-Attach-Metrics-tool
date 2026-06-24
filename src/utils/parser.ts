@@ -213,7 +213,12 @@ export function mapYTDRows(
     const rawRegion = cleanCellString(row[mapping.region] || "");
     const normalizedRegion = normalizeRegionName(rawRegion);
     const totalMortgageAttachRate = parsePercentage(row[mapping.totalMortgageAttachRate]);
-    const totalRampedMortgageAttachRateGoal = parsePercentage(row[mapping.totalRampedMortgageAttachRateGoal]);
+    
+    // Check if the goal cell is actually empty (keep 0%, empty means null/undefined/whitespace only)
+    const goalCol = mapping.totalRampedMortgageAttachRateGoal;
+    const isGoalEmpty = goalCol ? (row[goalCol] === null || row[goalCol] === undefined || String(row[goalCol]).trim() === "") : false;
+
+    const totalRampedMortgageAttachRateGoal = parsePercentage(row[goalCol]);
     const progressToRampedMortgageAttachRateGoal = parsePercentage(row[mapping.progressToRampedMortgageAttachRateGoal]);
 
     return {
@@ -223,7 +228,8 @@ export function mapYTDRows(
       totalMortgageAttachRate,
       totalRampedMortgageAttachRateGoal,
       progressToRampedMortgageAttachRateGoal,
-      originalRegion: rawRegion
+      originalRegion: rawRegion,
+      isGoalEmpty
     };
   }).filter(r => {
     const officeLower = r.agentOffice.toLowerCase().trim();
@@ -235,9 +241,10 @@ export function mapYTDRows(
       officeLower !== regionLower &&
       officeLower !== rawRegionLower &&
       !officeLower.includes("agent office") &&
-      !officeLower.includes("office name")
+      !officeLower.includes("office name") &&
+      !r.isGoalEmpty
     );
-  });
+  }).map(({ isGoalEmpty, ...rest }) => rest as YTDRow);
 }
 
 // Full file helper

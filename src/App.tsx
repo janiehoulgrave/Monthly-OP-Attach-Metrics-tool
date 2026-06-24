@@ -59,9 +59,7 @@ export default function App() {
 
   // Metadata Text Fields (user customizable)
   const [reportingPeriod, setReportingPeriod] = useState<string>("Month Year");
-  const [tagline, setTagline] = useState<string>(
-    "Results trending ahead of plan on path to exceed first-half goals."
-  );
+  const [tagline, setTagline] = useState<string>("");
   const [disclaimer, setDisclaimer] = useState<string>(
     "In certain cases, market totals include transactions from all regional offices (including those unlisted), which may result in minor variances between office-level aggregates and total market Attach Rates."
   );
@@ -92,7 +90,7 @@ export default function App() {
     // Adapt tagline based on region
     if (region === DEFAULT_REGION) {
       setReportingPeriod("Month Year");
-      setTagline("Results trending ahead of plan on path to exceed first-half goals.");
+      setTagline("");
     } else {
       setReportingPeriod("Month Year");
       setTagline("Continuous operational expansion shows robust performance trending above targets.");

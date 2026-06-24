@@ -166,7 +166,7 @@ export default function EmailPreview({
               {selectedRegion}
             </h3>
             <p className="margin-0 text-lg text-[#EDF4FB]/75 font-sans mt-2">
-              {reportingPeriod} &middot; {tagline}
+              {reportingPeriod}{tagline ? ` · ${tagline}` : ""}
             </p>
           </div>
 

@@ -102,7 +102,7 @@ export function generateEmailHTML({
               <img src="${logoUrl}" height="60" alt="OriginPoint Logo" style="height:60px; width:auto; border:none; display:block; margin-bottom:16px; outline:none; text-decoration:none;" />
               <p style="margin: 0 0 6px 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6); font-family: Arial, sans-serif;">MORTGAGE ATTACH RATE REPORT</p>
               <h1 style="margin: 0 0 8px 0; font-family: Georgia, serif; font-size: 40px; font-weight: normal; color: #FFFFFF; line-height: 1.2;">${regionName}</h1>
-              <p style="margin: 0; font-size: 18px; color: rgba(255,255,255,0.7); font-family: Arial, sans-serif; line-height: 1.4;">${reportingPeriod} &middot; ${tagline}</p>
+              <p style="margin: 0; font-size: 18px; color: rgba(255,255,255,0.7); font-family: Arial, sans-serif; line-height: 1.4;">\${reportingPeriod}\${tagline ? ' &middot; ' + tagline : ''}</p>
             </td>
           </tr>
         </table>
