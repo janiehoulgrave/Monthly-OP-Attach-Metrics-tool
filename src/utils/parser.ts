@@ -285,3 +285,84 @@ export async function parseSpreadsheetFile(file: File): Promise<{ headers: strin
     }
   });
 }
+
+// Extract Month and Year from filename
+export function extractMonthYearFromFilename(filename: string): string | null {
+  if (!filename) return null;
+  
+  const months = [
+    "January", "February", "March", "April", "May", "June", 
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  const lowerFilename = filename.toLowerCase();
+  
+  // 1. Check numeric formats first, e.g., YYYY-MM
+  const yyyyMmMatch = filename.match(/\b(20\d{2})[-_/](0[1-9]|1[0-2])\b/);
+  if (yyyyMmMatch) {
+    const year = yyyyMmMatch[1];
+    const monthIndex = parseInt(yyyyMmMatch[2], 10) - 1;
+    return `${months[monthIndex]} ${year}`;
+  }
+
+  // MM-YYYY
+  const mmYyyyMatch = filename.match(/\b(0[1-9]|1[0-2])[-_/](20\d{2})\b/);
+  if (mmYyyyMatch) {
+    const monthIndex = parseInt(mmYyyyMatch[1], 10) - 1;
+    const year = mmYyyyMatch[2];
+    return `${months[monthIndex]} ${year}`;
+  }
+  
+  // 2. Try to find full month name
+  let foundMonth: string | null = null;
+  for (const m of months) {
+    if (lowerFilename.includes(m.toLowerCase())) {
+      foundMonth = m;
+      break;
+    }
+  }
+  
+  // 3. Try abbreviations if full name not found
+  if (!foundMonth) {
+    const shortMonths = [
+      { name: "January", abbr: "jan" },
+      { name: "February", abbr: "feb" },
+      { name: "March", abbr: "mar" },
+      { name: "April", abbr: "apr" },
+      { name: "May", abbr: "may" },
+      { name: "June", abbr: "jun" },
+      { name: "July", abbr: "jul" },
+      { name: "August", abbr: "aug" },
+      { name: "September", abbr: "sep" },
+      { name: "October", abbr: "oct" },
+      { name: "November", abbr: "nov" },
+      { name: "December", abbr: "dec" }
+    ];
+    for (const sm of shortMonths) {
+      const regex = new RegExp(`\\b${sm.abbr}\\b`, 'i');
+      if (regex.test(filename)) {
+        foundMonth = sm.name;
+        break;
+      }
+    }
+  }
+  
+  // 4. Try to find a 4-digit year (like 2024, 2025, 2026, etc.)
+  const yearMatch = filename.match(/\b(20\d{2})\b/);
+  let foundYear = yearMatch ? yearMatch[1] : null;
+  
+  // 5. Try to find a 2-digit year after a month (e.g. "Jun 26" or "Jun-26")
+  if (foundMonth && !foundYear) {
+    const shortYearMatch = filename.match(/\b(2[4-9]|3[0-5])\b/);
+    if (shortYearMatch) {
+      foundYear = `20${shortYearMatch[1]}`;
+    }
+  }
+  
+  if (foundMonth) {
+    const finalYear = foundYear || new Date().getFullYear().toString();
+    return `${foundMonth} ${finalYear}`;
+  }
+  
+  return null;
+}

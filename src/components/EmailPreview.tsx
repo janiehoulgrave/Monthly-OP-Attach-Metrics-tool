@@ -137,16 +137,16 @@ export default function EmailPreview({
       </div>
 
       {/* PREVIEW CONTAINER */}
-      <div className="bg-slate-200 border border-[#C8DCF0] p-6 rounded-2xl flex justify-center items-center overflow-auto min-h-[480px]">
-        {/* 600px Preview block */}
+      <div className="bg-slate-200 border border-[#C8DCF0] p-6 rounded-2xl flex justify-center items-center overflow-auto min-h-[580px]">
+        {/* 1200px Preview block */}
         <div
           ref={emailBlockRef}
           id="email-preview-block"
-          className="w-[600px] bg-[#EDF4FB] p-6 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
-          style={{ width: "600px", maxWidth: "100%" }}
+          className="w-[1200px] bg-[#EDF4FB] p-8 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
+          style={{ width: "1200px", maxWidth: "100%" }}
         >
           {/* Header block preview */}
-          <div className="bg-[#2D5A4E] p-5 rounded-t-xl relative overflow-hidden text-white">
+          <div className="bg-[#2D5A4E] p-10 rounded-t-xl relative overflow-hidden text-white">
             <div className="absolute -right-10 -top-12 w-48 h-48 rounded-full border border-white/5 pointer-events-none"></div>
             <div className="absolute right-8 -top-4 w-32 h-32 rounded-full border border-white/5 pointer-events-none"></div>
 
@@ -156,82 +156,82 @@ export default function EmailPreview({
               onError={(e) => {
                 e.currentTarget.src = logoBase64;
               }}
-              className="h-[38px] w-auto border-none mb-3 outline-none block"
+              className="h-[60px] w-auto border-none mb-4 outline-none block"
               alt="OriginPoint Logo"
             />
-            <p className="margin-0 text-[10px] font-bold tracking-widest text-[#EDF4FB]/60 uppercase font-sans">
+            <p className="margin-0 text-[14px] font-bold tracking-widest text-[#EDF4FB]/60 uppercase font-sans">
               Mortgage attach rate report
             </p>
-            <h3 className="margin-0 font-serif text-xl font-bold text-white mt-1">
+            <h3 className="margin-0 font-serif text-4xl font-bold text-white mt-1.5">
               {selectedRegion}
             </h3>
-            <p className="margin-0 text-xs text-[#EDF4FB]/75 font-sans mt-1">
+            <p className="margin-0 text-lg text-[#EDF4FB]/75 font-sans mt-2">
               {reportingPeriod} &middot; {tagline}
             </p>
           </div>
 
           {/* Main section preview body */}
-          <div className="bg-white border-x border-b border-[#C8DCF0] rounded-b-xl p-5 text-gray-800">
+          <div className="bg-white border-x border-b border-[#C8DCF0] rounded-b-xl p-10 text-gray-800">
             {/* Highlights Header */}
-            <p className="text-[10px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-3 font-sans">
-              April Highlights
+            <p className="text-[15px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-4.5 font-sans">
+              {(reportingPeriod.split(" ")[0] || "Month")} Highlights
             </p>
 
             {/* KPI Cards Row Grid */}
-            <div className="grid grid-cols-5 gap-2 mb-5">
+            <div className="grid grid-cols-5 gap-5 mb-8">
               {/* KPI 1 */}
-              <div className="bg-[#2D5A4E] text-white rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
-                <span className="text-[7.5px] font-bold text-[#EDF4FB]/60 leading-tight">
+              <div className="bg-[#2D5A4E] text-white rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
+                <span className="text-[12px] font-bold text-[#EDF4FB]/60 leading-tight tracking-wider uppercase">
                   REGIONAL ATTACH
                 </span>
-                <span className="font-serif text-base font-bold my-1 leading-none">
+                <span className="font-serif text-3xl font-bold my-1.5 leading-none">
                   {regionalAttachRate}
                 </span>
-                <span className="text-[9px] text-[#EDF4FB]/70 leading-tight">
+                <span className="text-[13px] text-[#EDF4FB]/70 leading-tight">
                   Target {regionalTarget}
                 </span>
               </div>
 
               {/* KPI 2 */}
-              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
-                <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight font-sans">
+              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
+                <span className="text-[12px] font-bold text-[#2D5A4E] leading-tight font-sans tracking-wider uppercase">
                   1H GOAL PROGRESS
                 </span>
                 <span
-                  className={`font-serif text-base font-bold my-1 leading-none ${
+                  className={`font-serif text-3xl font-bold my-1.5 leading-none ${
                     progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"
                   }`}
                 >
                   {progressToGoal}
                 </span>
-                <span className="text-[9.5px] text-gray-400 leading-tight">
+                <span className="text-[13px] text-gray-400 leading-tight">
                   {progressText}
                 </span>
               </div>
 
               {/* KPI 3 */}
-              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
-                <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight font-sans">
+              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
+                <span className="text-[12px] font-bold text-[#2D5A4E] leading-tight font-sans tracking-wider uppercase">
                   FUNDED OP LOANS
                 </span>
-                <span className="font-serif text-base font-bold my-1 leading-none text-[#1C3A32]">
+                <span className="font-serif text-3xl font-bold my-1.5 leading-none text-[#1C3A32]">
                   {fundedLoans}
                 </span>
-                <span className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap">
                   {fundedSublabel}
                 </span>
               </div>
 
               {/* KPI 4 */}
-              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
-                <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight">
+              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
+                <span className="text-[12px] font-bold text-[#2D5A4E] leading-tight tracking-wider uppercase">
                   TOP OFFICE
                 </span>
-                <span className="font-serif text-base font-bold my-1 leading-none text-[#2D5A4E]">
+                <span className="font-serif text-3xl font-bold my-1.5 leading-none text-[#2D5A4E]">
                   {topOfficeRate}
                 </span>
                 <span
-                  className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
+                  className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
                   title={topOfficeName}
                 >
                   {topOfficeName}
@@ -239,15 +239,15 @@ export default function EmailPreview({
               </div>
 
               {/* KPI 5 */}
-              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-lg p-2.5 text-center flex flex-col justify-between h-[100px]">
-                <span className="text-[7.5px] font-bold text-[#2D5A4E] leading-tight font-sans">
+              <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
+                <span className="text-[12px] font-bold text-[#2D5A4E] leading-tight font-sans tracking-wider uppercase">
                   MOST IMPROVED
                 </span>
-                <span className="font-serif text-base font-bold my-1 leading-none text-[#1A7A3C]">
+                <span className="font-serif text-3xl font-bold my-1.5 leading-none text-[#1A7A3C]">
                   {mostImprovedDiff}
                 </span>
                 <span
-                  className="text-[9.5px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
+                  className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
                   title={mostImprovedName}
                 >
                   {mostImprovedName}
@@ -256,20 +256,20 @@ export default function EmailPreview({
             </div>
 
             {/* Data summary table preview */}
-            <div className="border-t border-[#C8DCF0] pt-4.5">
-              <p className="text-[10px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-2.5 font-sans">
+            <div className="border-t border-[#C8DCF0] pt-6">
+              <p className="text-[15px] font-bold tracking-wider text-[#2D5A4E] uppercase mb-3.5 font-sans">
                 Attach Transactions Detail
               </p>
 
-              <div className="overflow-hidden border border-[#dce9f5] rounded-lg">
-                <table className="w-full text-left border-collapse table-auto text-[10px] leading-tight">
+              <div className="overflow-hidden border border-[#dce9f5] rounded-xl">
+                <table className="w-full text-left border-collapse table-auto text-sm leading-normal">
                   <thead>
                     <tr className="bg-[#2D5A4E] text-white">
-                      <th className="p-2 font-medium">Agent Office</th>
-                      <th className="p-2 text-center">Funded</th>
-                      <th className="p-2 text-center">Deals</th>
-                      <th className="p-2 text-center">Attach</th>
-                      <th className="p-2 text-center font-bold">Progress (pp)</th>
+                      <th className="p-3.5 font-medium">Agent Office</th>
+                      <th className="p-3.5 text-center">Funded</th>
+                      <th className="p-3.5 text-center">Deals</th>
+                      <th className="p-3.5 text-center">Attach</th>
+                      <th className="p-3.5 text-center font-bold">Progress (pp)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -282,7 +282,7 @@ export default function EmailPreview({
                       return (
                         <tr key={idx} className={`${bg} border-b border-[#dce9f5]/75`}>
                           <td
-                            className={`p-2 font-sans ${
+                            className={`p-3.5 font-sans ${
                               isTotal
                                 ? "font-bold text-[#1C3A32]"
                                 : isZero
@@ -292,19 +292,19 @@ export default function EmailPreview({
                           >
                             {row.agentOffice}
                           </td>
-                          <td className="p-2 text-center text-gray-800">
+                          <td className="p-3.5 text-center text-gray-800">
                             {isZero ? "-" : row.totalFundedOPLoans}
                           </td>
-                          <td className="p-2 text-center text-gray-800">
+                          <td className="p-3.5 text-center text-gray-800">
                             {row.totalBuysideDeals}
                           </td>
-                          <td className="p-2 text-center text-gray-800">
+                          <td className="p-3.5 text-center text-gray-800">
                             {row.attachRate === 0
                               ? "-"
                               : `${row.attachRate.toFixed(1)}%`}
                           </td>
                           <td
-                            className={`p-2 text-center font-bold font-sans ${
+                            className={`p-3.5 text-center font-bold font-sans ${
                               row.progressToGoal === 0
                                 ? "text-gray-300"
                                 : row.progressToGoal > 0
@@ -324,14 +324,14 @@ export default function EmailPreview({
               </div>
             </div>
 
-            <p className="text-[9px] text-gray-400 leading-normal italic mt-4 border-t pt-3">
+            <p className="text-xs text-gray-400 leading-normal italic mt-5 border-t pt-4">
               {disclaimer}
             </p>
           </div>
 
           {/* Centered Footer Preview block */}
-          <div className="text-center py-2.5">
-            <p className="text-[9px] font-bold text-[#4A90D9] uppercase tracking-widest font-sans">
+          <div className="text-center py-4">
+            <p className="text-xs font-bold text-[#4A90D9] uppercase tracking-widest font-sans">
               {thankYouText}
             </p>
           </div>
