@@ -27,8 +27,8 @@ interface UploadWizardProps {
 
 export default function UploadWizard({
   onDataParsed,
-  currentMonthlyFileName = "Initial Empty April 2026 Dataset (0's)",
-  currentYtdFileName = "Initial Empty YTD Dataset (0's)"
+  currentMonthlyFileName = "Upload your data",
+  currentYtdFileName = "Upload your data"
 }: UploadWizardProps) {
   // Drag and drop states
   const [dragOverMonthly, setDragOverMonthly] = useState(false);

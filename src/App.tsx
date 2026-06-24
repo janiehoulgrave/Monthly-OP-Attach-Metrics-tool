@@ -69,8 +69,8 @@ export default function App() {
   );
 
   // Status indicators for file load
-  const [monthlyFileName, setMonthlyFileName] = useState<string>("Initial Empty April 2026 Dataset (0's)");
-  const [ytdFileName, setYtdFileName] = useState<string>("Initial Empty YTD Dataset (0's)");
+  const [monthlyFileName, setMonthlyFileName] = useState<string>("Upload your data");
+  const [ytdFileName, setYtdFileName] = useState<string>("Upload your data");
   const [isUsingPreloaded, setIsUsingPreloaded] = useState<boolean>(true);
 
   // Active configurations
@@ -307,12 +307,12 @@ export default function App() {
 
   const handleResetData = () => {
     setIsUsingPreloaded(true);
-    setMonthlyFileName("Initial Empty April 2026 Dataset (0's)");
-    setYtdFileName("Initial Empty YTD Dataset (0's)");
+    setMonthlyFileName("Upload your data");
+    setYtdFileName("Upload your data");
     setSelectedRegion(DEFAULT_REGION);
     setHistory([]); // reset history on data reset
     loadPreloadedData(DEFAULT_REGION);
-    triggerToast("Reset back to initial empty dataset (0's)!");
+    triggerToast("Reset back to initial dataset (0's)!");
   };
 
   // FILTER LOGIC & DERIVATION of KPIs
@@ -804,7 +804,7 @@ export default function App() {
                   onClick={handleResetData}
                   className="mt-4 px-4 py-2 text-xs font-medium text-white bg-[#2D5A4E] hover:bg-[#1C3A32] rounded-lg cursor-pointer"
                 >
-                  Load Initial Empty Dataset (0's)
+                  Reset to Initial Dataset (0's)
                 </button>
               </div>
             ) : (
