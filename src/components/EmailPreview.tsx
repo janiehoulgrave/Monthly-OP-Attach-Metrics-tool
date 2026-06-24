@@ -97,7 +97,7 @@ export default function EmailPreview({
         <div>
           <h3 className="font-serif text-base font-semibold text-[#2D5A4E] flex items-center gap-1.5">
             <Globe className="w-4.5 h-4.5" />
-            Visual Email Block Preview (600px width)
+            Visual Email Block Preview (1200px width)
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
             Below is the exact output rendered for email tools (Gmail, Outlook, Compass Mail, etc.).
@@ -138,13 +138,15 @@ export default function EmailPreview({
 
       {/* PREVIEW CONTAINER */}
       <div className="bg-slate-200 border border-[#C8DCF0] p-6 rounded-2xl flex justify-center items-center overflow-auto min-h-[580px]">
-        {/* 1200px Preview block */}
-        <div
-          ref={emailBlockRef}
-          id="email-preview-block"
-          className="w-[1200px] bg-[#EDF4FB] p-8 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
-          style={{ width: "1200px", maxWidth: "100%" }}
-        >
+        {/* Zoom wrapper for 1200px block */}
+        <div className="preview-zoom-container shrink-0">
+          {/* 1200px Preview block */}
+          <div
+            ref={emailBlockRef}
+            id="email-preview-block"
+            className="w-[1200px] bg-[#EDF4FB] p-8 rounded-2xl shadow-md text-left text-black font-sans leading-relaxed select-text"
+            style={{ width: "1200px" }}
+          >
           {/* Header block preview */}
           <div className="bg-[#2D5A4E] p-10 rounded-t-xl relative overflow-hidden text-white">
             <div className="absolute -right-20 -top-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none"></div>
@@ -335,6 +337,7 @@ export default function EmailPreview({
               {thankYouText}
             </p>
           </div>
+        </div>
         </div>
       </div>
     </div>

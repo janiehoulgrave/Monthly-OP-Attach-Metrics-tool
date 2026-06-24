@@ -5,3 +5,33 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", Georgia, serif;
 }
+
+.preview-zoom-container {
+  zoom: 0.55;
+  width: 1200px;
+}
+
+@media (max-width: 640px) {
+  .preview-zoom-container {
+    zoom: 0.28 !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .preview-zoom-container {
+    zoom: 0.42 !important;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .preview-zoom-container {
+    zoom: 0.52 !important;
+  }
+}
+
+@media (min-width: 1441px) {
+  .preview-zoom-container {
+    zoom: 0.62 !important;
+  }
+}
+
