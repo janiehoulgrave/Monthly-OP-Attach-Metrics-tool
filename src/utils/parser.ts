@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
-import { MonthlyRow, YTDRow, MonthlyColumnMapping, YTDColumnMapping } from "../types";
+import { MonthlyRow, YTDRow, MonthlyColumnMapping, YTDColumnMapping, MarketGoalRow, MarketGoalColumnMapping } from "../types";
 
 // Fuzzy match helpers
 export const FUZZY_MONTHLY_TEMPLATES: Record<keyof MonthlyColumnMapping, string[]> = {
@@ -20,6 +20,14 @@ export const FUZZY_YTD_TEMPLATES: Record<keyof YTDColumnMapping, string[]> = {
   totalMortgageAttachRate: ["total mortgage attach rate", "mortgage attach rate", "attach rate", "total attach rate", "rate"],
   totalRampedMortgageAttachRateGoal: ["total ramped mortgage attach rate goal", "ramped attach rate goal", "goal", "target", "ramped target", "attach rate goal"],
   progressToRampedMortgageAttachRateGoal: ["progress to ramped mortgage attach rate goal (pp)", "progress (pp)", "progress to goal", "progress"]
+};
+
+export const FUZZY_MARKET_GOAL_TEMPLATES: Record<keyof MarketGoalColumnMapping, string[]> = {
+  marketName: ["agent compass market", "market", "market name", "market_name", "region", "region name", "market_name"],
+  totalMortgageTransactions: ["total mortgage transactions", "total transactions", "transactions", "deals", "loans", "total funded op loans"],
+  totalMortgageAttachRate: ["total mortgage attach rate", "mortgage attach rate", "attach rate", "total attach rate", "rate", "attach %"],
+  totalRampedMortgageAttachRateGoal: ["total ramped mortgage attach rate goal", "ramped attach rate goal", "goal", "target", "ramped target", "attach rate goal"],
+  progressToRampedMortgageAttachRateGoal: ["progress to ramped mortgage attach rate goal (pp)", "progress (pp)", "progress to goal", "progress", "progress to ramped mortgage attach rate goal"]
 };
 
 // Fuzzy matcher finding best match among headers
@@ -63,6 +71,16 @@ export function autoMapYTDColumns(headers: string[]): YTDColumnMapping {
     totalMortgageAttachRate: findBestHeader(headers, FUZZY_YTD_TEMPLATES.totalMortgageAttachRate),
     totalRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_YTD_TEMPLATES.totalRampedMortgageAttachRateGoal),
     progressToRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_YTD_TEMPLATES.progressToRampedMortgageAttachRateGoal)
+  };
+}
+
+export function autoMapMarketGoalColumns(headers: string[]): MarketGoalColumnMapping {
+  return {
+    marketName: findBestHeader(headers, FUZZY_MARKET_GOAL_TEMPLATES.marketName, true),
+    totalMortgageTransactions: findBestHeader(headers, FUZZY_MARKET_GOAL_TEMPLATES.totalMortgageTransactions),
+    totalMortgageAttachRate: findBestHeader(headers, FUZZY_MARKET_GOAL_TEMPLATES.totalMortgageAttachRate),
+    totalRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_MARKET_GOAL_TEMPLATES.totalRampedMortgageAttachRateGoal),
+    progressToRampedMortgageAttachRateGoal: findBestHeader(headers, FUZZY_MARKET_GOAL_TEMPLATES.progressToRampedMortgageAttachRateGoal)
   };
 }
 
@@ -141,77 +159,68 @@ export function getSimpleOfficeName(officeName: string, regionName: string): str
   if (!officeName) return "N/A";
   let name = officeName.trim();
 
-  // 1. Remove parenthesized region or metadata, e.g. "Ellicott City (Washington, DC Area)" -> "Ellicott City"
-  const parenRegex = /\(([^)]+)\)/g;
-  name = name.replace(parenRegex, (match, content) => {
-    const cLower = content.toLowerCase();
-    if (
-      cLower.includes("area") || 
-      cLower.includes("baltimore") || 
-      cLower.includes("washington") || 
-      cLower.includes("dc") ||
-      cLower.includes("dallas") ||
-      cLower.includes("region") ||
-      cLower.includes("market")
-    ) {
-      return "";
-    }
-    return match;
-  }).trim();
+  // Split using common delimiters: " - ", " – ", " — ", " | ", or even simple "-" with spaces
+  const parts = name.split(/\s*[-–—|/]\s*/).map(p => p.trim()).filter(Boolean);
 
-  // 2. Handle delimiters like " - ", " – ", " | ", " / ", " : ", " — "
-  const delimiters = [" - ", " – ", " | ", " / ", " : ", "—"];
-  for (const delim of delimiters) {
-    if (name.includes(delim)) {
-      const parts = name.split(delim).map(p => p.trim());
-      const isRegionPart = (part: string) => {
-        const pLower = part.toLowerCase();
-        const rLower = regionName ? regionName.toLowerCase() : "";
-        return (
-          pLower === rLower ||
-          rLower.includes(pLower) ||
-          pLower.includes("washington") ||
-          pLower.includes("baltimore") ||
-          pLower.includes("dc area") ||
-          pLower.includes("dallas") ||
-          pLower.includes("region") ||
-          pLower.includes("market") ||
-          pLower.includes("total")
-        );
-      };
-
-      const nonRegionParts = parts.filter(p => !isRegionPart(p));
-      if (nonRegionParts.length > 0) {
-        name = nonRegionParts[0];
-        break;
-      }
-    }
-  }
-
-  // Also handle cases where there's a dash without spaces e.g. "Washington-Baltimore" or "Ellicott City-DC"
-  if (name.includes("-")) {
-    const parts = name.split("-").map(p => p.trim());
-    const isRegionPart = (part: string) => {
-      const pLower = part.toLowerCase();
-      const rLower = regionName ? regionName.toLowerCase() : "";
-      return (
-        pLower === rLower ||
-        rLower.includes(pLower) ||
-        pLower.includes("washington") ||
-        pLower.includes("baltimore") ||
-        pLower.includes("dc area") ||
-        pLower.includes("dallas") ||
-        pLower.includes("region") ||
-        pLower.includes("market")
-      );
+  if (parts.length > 1) {
+    const isAddress = (str: string) => {
+      const s = str.toLowerCase();
+      // Starts with numbers (house number) or contains suite/drive/street/road/way/lane/boulevard/pike
+      if (/^\d+/.test(s)) return true;
+      if (s.includes("street") || s.includes(" st ") || s.endsWith(" st") || s.endsWith(" st.")) return true;
+      if (s.includes("avenue") || s.includes(" ave") || s.endsWith(" ave.")) return true;
+      if (s.includes("road") || s.includes(" rd") || s.endsWith(" rd.")) return true;
+      if (s.includes("boulevard") || s.includes(" blvd") || s.endsWith(" blvd.")) return true;
+      if (s.includes("drive") || s.includes(" dr ") || s.endsWith(" dr") || s.endsWith(" dr.")) return true;
+      if (s.includes("pike") || s.includes("way") || s.includes("suite") || s.includes("court") || s.includes(" ct ") || s.endsWith(" ct")) return true;
+      return false;
     };
-    const nonRegionParts = parts.filter(p => !isRegionPart(p));
-    if (nonRegionParts.length > 0) {
-      name = nonRegionParts[0];
+
+    const isStateCode = (str: string) => {
+      // 2 or 3 letters (e.g. MD, DC, VA, TX, CA, etc.)
+      return /^[A-Za-z]{2,3}$/.test(str);
+    };
+
+    const isRegionOrMarket = (str: string) => {
+      const s = str.toLowerCase();
+      const r = (regionName || "").toLowerCase();
+      if (!r) return false;
+      // If the part matches the region or is a major substring/word of the region, exclude it
+      if (s === r) return true;
+      if (r.includes(s) && s.length > 3) return true;
+      if (s.includes("region") || s.includes("market") || s.includes("total") || s.includes("area") || s.includes("district")) return true;
+      return false;
+    };
+
+    // Filter out state codes, addresses, and regions/markets
+    const candidates = parts.filter(p => !isStateCode(p) && !isAddress(p) && !isRegionOrMarket(p));
+
+    if (candidates.length > 0) {
+      return candidates[0]; // Take the first candidate that survived the filters
     }
+
+    // Fallbacks based on position if everything got filtered or nothing matched
+    if (parts.length === 4) {
+      // Region - Market - Office - Address
+      return parts[2];
+    } else if (parts.length === 3) {
+      // Could be Region - Office - Address or Region - Market - Office
+      if (isAddress(parts[2])) {
+        return parts[1];
+      }
+      return parts[2];
+    } else if (parts.length === 2) {
+      // Region - Office or Market - Office
+      return parts[1];
+    }
+
+    const nonStateParts = parts.filter(p => !isStateCode(p));
+    if (nonStateParts.length > 0) return nonStateParts[0];
   }
 
-  // Clean up any double spaces, trailing commas, or delimiters
+  // Fallback: remove parentheses from original name
+  const parenRegex = /\(([^)]+)\)/g;
+  name = name.replace(parenRegex, "").trim();
   name = name.replace(/[,-\s|/:]+$/, "").replace(/^[,-\s|/:]+/, "").trim();
 
   return name || officeName.trim();
@@ -326,6 +335,29 @@ export function mapYTDRows(
       !r.isGoalEmpty
     );
   }).map(({ isGoalEmpty, ...rest }) => rest as YTDRow);
+}
+
+// Parse Market Goal rows
+export function mapMarketGoalRows(
+  jsonData: any[],
+  mapping: MarketGoalColumnMapping
+): MarketGoalRow[] {
+  return jsonData.map((row, idx) => {
+    const rawMarket = cleanCellString(row[mapping.marketName] || "");
+    const totalTransactions = parseNumber(row[mapping.totalMortgageTransactions]);
+    const totalMortgageAttachRate = parsePercentage(row[mapping.totalMortgageAttachRate]);
+    const totalRampedMortgageAttachRateGoal = parsePercentage(row[mapping.totalRampedMortgageAttachRateGoal]);
+    const progressToRampedMortgageAttachRateGoal = parsePercentage(row[mapping.progressToRampedMortgageAttachRateGoal]);
+
+    return {
+      id: `uploaded-market-goal-${idx}-${Date.now()}`,
+      marketName: rawMarket,
+      totalMortgageTransactions: totalTransactions,
+      totalMortgageAttachRate,
+      totalRampedMortgageAttachRateGoal,
+      progressToRampedMortgageAttachRateGoal
+    };
+  }).filter(r => r.marketName !== "");
 }
 
 // Full file helper

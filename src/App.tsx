@@ -17,7 +17,7 @@ import {
   Users,
   Shield
 } from "lucide-react";
-import { MonthlyRow, YTDRow } from "./types";
+import { MonthlyRow, YTDRow, MarketGoalRow } from "./types";
 import { REGIONS_LIST, DEFAULT_REGION, getGeneratedSampleDataForRegion } from "./sampleData";
 import UploadWizard from "./components/UploadWizard";
 import { extractMonthYearFromFilename, getSimpleOfficeName } from "./utils/parser";
@@ -56,6 +56,7 @@ export default function App() {
   // Core Parsed/Editable Data Sets
   const [monthlyRows, setMonthlyRows] = useState<MonthlyRow[]>([]);
   const [ytdRows, setYtdRows] = useState<YTDRow[]>([]);
+  const [marketGoalRows, setMarketGoalRows] = useState<MarketGoalRow[]>([]);
 
   // Metadata Text Fields (user customizable)
   const [reportingPeriod, setReportingPeriod] = useState<string>("Month Year");
@@ -70,6 +71,7 @@ export default function App() {
   // Status indicators for file load
   const [monthlyFileName, setMonthlyFileName] = useState<string>("Upload your data");
   const [ytdFileName, setYtdFileName] = useState<string>("Upload your data");
+  const [marketGoalsFileName, setMarketGoalsFileName] = useState<string>("Upload your data");
   const [isUsingPreloaded, setIsUsingPreloaded] = useState<boolean>(true);
 
   // Active configurations
@@ -101,13 +103,17 @@ export default function App() {
   const handleDataParsed = (payload: {
     monthlyRows: MonthlyRow[];
     ytdRows: YTDRow[];
+    marketGoalRows: MarketGoalRow[];
     monthlyFileName: string;
     ytdFileName: string;
+    marketGoalsFileName: string;
   }) => {
     setMonthlyRows(payload.monthlyRows);
     setYtdRows(payload.ytdRows);
+    setMarketGoalRows(payload.marketGoalRows || []);
     setMonthlyFileName(payload.monthlyFileName);
     setYtdFileName(payload.ytdFileName);
+    setMarketGoalsFileName(payload.marketGoalsFileName || "Upload your data");
     setIsUsingPreloaded(false);
 
     // Try to auto-populate the month and year from the uploaded file names
@@ -314,6 +320,8 @@ export default function App() {
     setIsUsingPreloaded(true);
     setMonthlyFileName("Upload your data");
     setYtdFileName("Upload your data");
+    setMarketGoalsFileName("Upload your data");
+    setMarketGoalRows([]);
     setSelectedRegion(DEFAULT_REGION);
     setHistory([]); // reset history on data reset
     loadPreloadedData(DEFAULT_REGION);
@@ -321,6 +329,28 @@ export default function App() {
   };
 
   // FILTER LOGIC & DERIVATION of KPIs
+  // Helper to match a total line with uploaded market goals
+  const findMarketGoalMatch = (totalOfficeName: string, goalRows: MarketGoalRow[]): MarketGoalRow | undefined => {
+    if (!goalRows || goalRows.length === 0) return undefined;
+    
+    // Normalize total office name: "DC Area total" -> "dc", "Baltimore total" -> "baltimore", "Greater Boston Total" -> "greater boston"
+    const cleanTotal = totalOfficeName.toLowerCase()
+      .replace(/\s+total$/i, "")
+      .replace(/\s+area$/i, "")
+      .replace(/[^a-z0-9]/g, "")
+      .trim();
+
+    return goalRows.find(mg => {
+      const cleanMg = mg.marketName.toLowerCase()
+        .replace(/\s+total$/i, "")
+        .replace(/\s+area$/i, "")
+        .replace(/[^a-z0-9]/g, "")
+        .trim();
+
+      return cleanTotal === cleanMg || cleanTotal.includes(cleanMg) || cleanMg.includes(cleanTotal);
+    });
+  };
+
   // Dynamic merge of monthly and YTD rows
   const mergedMonthlyRows = monthlyRows.map(mRow => {
     // Find matching YTD row by agentOffice and region (case insensitive)
@@ -469,6 +499,60 @@ export default function App() {
   } else {
     totals = hasExplicitTotalRow ? explicitTotals : [computedTotalRow];
     primaryTotalRow = totals[0];
+  }
+
+  // Override totals and primaryTotalRow from uploaded market level goals if matched
+  totals = totals.map(t => {
+    const mgMatch = findMarketGoalMatch(t.agentOffice, marketGoalRows);
+    if (mgMatch) {
+      return {
+        ...t,
+        firstHalfTarget: mgMatch.totalRampedMortgageAttachRateGoal,
+        progressToGoal: mgMatch.progressToRampedMortgageAttachRateGoal,
+        attachRate: mgMatch.totalMortgageAttachRate !== 0 ? mgMatch.totalMortgageAttachRate : t.attachRate,
+        firstHalfAttachRate: mgMatch.totalMortgageAttachRate !== 0 ? mgMatch.totalMortgageAttachRate : t.firstHalfAttachRate,
+        totalFundedOPLoans: mgMatch.totalMortgageTransactions !== undefined && mgMatch.totalMortgageTransactions !== 0
+          ? mgMatch.totalMortgageTransactions
+          : t.totalFundedOPLoans
+      };
+    }
+    return t;
+  });
+
+  const matchedPrimaryMg = findMarketGoalMatch(`${selectedRegion} Total`, marketGoalRows) || findMarketGoalMatch(selectedRegion, marketGoalRows);
+  if (matchedPrimaryMg) {
+    primaryTotalRow = {
+      ...primaryTotalRow,
+      firstHalfTarget: matchedPrimaryMg.totalRampedMortgageAttachRateGoal,
+      progressToGoal: matchedPrimaryMg.progressToRampedMortgageAttachRateGoal,
+      attachRate: matchedPrimaryMg.totalMortgageAttachRate !== 0 ? matchedPrimaryMg.totalMortgageAttachRate : primaryTotalRow.attachRate,
+      firstHalfAttachRate: matchedPrimaryMg.totalMortgageAttachRate !== 0 ? matchedPrimaryMg.totalMortgageAttachRate : primaryTotalRow.firstHalfAttachRate,
+      totalFundedOPLoans: matchedPrimaryMg.totalMortgageTransactions !== undefined && matchedPrimaryMg.totalMortgageTransactions !== 0
+        ? matchedPrimaryMg.totalMortgageTransactions
+        : primaryTotalRow.totalFundedOPLoans
+    };
+  } else if (totals.length === 1) {
+    // If there is only one total row (which represents the region total), align primaryTotalRow to it
+    primaryTotalRow = totals[0];
+  } else {
+    // If there are multiple totals (like DC Area total + Baltimore total), we re-aggregate primaryTotalRow's target/progress if overridden
+    const sumBuysideTotals = totals.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+    const sumFundedTotals = totals.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+    const primaryAttachRate = sumBuysideTotals > 0 ? parseFloat(((sumFundedTotals / sumBuysideTotals) * 100).toFixed(2)) : primaryTotalRow.attachRate;
+    
+    // Average target and progress from totals
+    const avgTargetFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.firstHalfTarget, 0) / totals.length).toFixed(2));
+    const avgProgressFromTotals = parseFloat((primaryAttachRate - avgTargetFromTotals).toFixed(1));
+
+    primaryTotalRow = {
+      ...primaryTotalRow,
+      totalFundedOPLoans: sumFundedTotals,
+      totalBuysideDeals: sumBuysideTotals,
+      attachRate: primaryAttachRate,
+      firstHalfAttachRate: primaryAttachRate,
+      firstHalfTarget: avgTargetFromTotals,
+      progressToGoal: avgProgressFromTotals
+    };
   }
 
   // Finalized currentRegionMonthlyRows list which ensures standard offices + totals
@@ -685,6 +769,7 @@ export default function App() {
           onDataParsed={handleDataParsed}
           currentMonthlyFileName={monthlyFileName}
           currentYtdFileName={ytdFileName}
+          currentMarketGoalsFileName={marketGoalsFileName}
         />
 
         {/* REPORT METADATA CONFIGURATION CONTROLS */}

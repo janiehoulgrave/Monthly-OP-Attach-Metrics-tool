@@ -49,4 +49,22 @@ export interface RegionReport {
   thankYouText: string;
   monthlyRows: MonthlyRow[];
   ytdRows: YTDRow[];
+  marketGoalRows?: MarketGoalRow[];
+}
+
+export interface MarketGoalRow {
+  marketName: string;
+  totalMortgageTransactions?: number;
+  totalMortgageAttachRate?: number;
+  totalRampedMortgageAttachRateGoal: number;
+  progressToRampedMortgageAttachRateGoal: number;
+  id: string;
+}
+
+export interface MarketGoalColumnMapping {
+  marketName: string;
+  totalMortgageTransactions: string;
+  totalMortgageAttachRate: string;
+  totalRampedMortgageAttachRateGoal: string;
+  progressToRampedMortgageAttachRateGoal: string;
 }

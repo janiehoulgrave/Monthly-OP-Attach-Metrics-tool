@@ -4,47 +4,59 @@ import {
   MonthlyColumnMapping, 
   YTDColumnMapping, 
   MonthlyRow, 
-  YTDRow 
+  YTDRow,
+  MarketGoalRow,
+  MarketGoalColumnMapping
 } from "../types";
 import { 
   parseSpreadsheetFile, 
   autoMapMonthlyColumns, 
   autoMapYTDColumns,
+  autoMapMarketGoalColumns,
   mapMonthlyRows,
-  mapYTDRows
+  mapYTDRows,
+  mapMarketGoalRows
 } from "../utils/parser";
 
 interface UploadWizardProps {
   onDataParsed: (payload: {
     monthlyRows: MonthlyRow[];
     ytdRows: YTDRow[];
+    marketGoalRows: MarketGoalRow[];
     monthlyFileName: string;
     ytdFileName: string;
+    marketGoalsFileName: string;
   }) => void;
   currentMonthlyFileName?: string;
   currentYtdFileName?: string;
+  currentMarketGoalsFileName?: string;
 }
 
 export default function UploadWizard({
   onDataParsed,
   currentMonthlyFileName = "Upload your data",
-  currentYtdFileName = "Upload your data"
+  currentYtdFileName = "Upload your data",
+  currentMarketGoalsFileName = "Upload your data"
 }: UploadWizardProps) {
   // Drag and drop states
   const [dragOverMonthly, setDragOverMonthly] = useState(false);
   const [dragOverYtd, setDragOverYtd] = useState(false);
+  const [dragOverMarketGoals, setDragOverMarketGoals] = useState(false);
 
   // Files state
   const [monthlyFile, setMonthlyFile] = useState<File | null>(null);
   const [ytdFile, setYtdFile] = useState<File | null>(null);
+  const [marketGoalsFile, setMarketGoalsFile] = useState<File | null>(null);
   
   // Parsed raw structures
   const [monthlyRaw, setMonthlyRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
   const [ytdRaw, setYtdRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
+  const [marketGoalsRaw, setMarketGoalsRaw] = useState<{ headers: string[]; data: any[] } | null>(null);
   
   // Mapping structures
   const [monthlyMapping, setMonthlyMapping] = useState<MonthlyColumnMapping | null>(null);
   const [ytdMapping, setYtdMapping] = useState<YTDColumnMapping | null>(null);
+  const [marketGoalsMapping, setMarketGoalsMapping] = useState<MarketGoalColumnMapping | null>(null);
 
   // UI state
   const [isMappingOpen, setIsMappingOpen] = useState(false);
@@ -55,11 +67,15 @@ export default function UploadWizard({
   useEffect(() => {
     const savedMonthly = localStorage.getItem("origin_point_monthly_mapping");
     const savedYtd = localStorage.getItem("origin_point_ytd_mapping");
+    const savedMarketGoals = localStorage.getItem("origin_point_market_goals_mapping");
     if (savedMonthly) {
       try { setMonthlyMapping(JSON.parse(savedMonthly)); } catch (e) { /* ignore */ }
     }
     if (savedYtd) {
       try { setYtdMapping(JSON.parse(savedYtd)); } catch (e) { /* ignore */ }
+    }
+    if (savedMarketGoals) {
+      try { setMarketGoalsMapping(JSON.parse(savedMarketGoals)); } catch (e) { /* ignore */ }
     }
   }, []);
 
@@ -70,13 +86,17 @@ export default function UploadWizard({
     mMap: MonthlyColumnMapping, 
     yMap: YTDColumnMapping,
     mName: string,
-    yName: string
+    yName: string,
+    mgRaw = marketGoalsRaw,
+    mgMap = marketGoalsMapping,
+    mgName = marketGoalsFile?.name || "Market Goals Export"
   ) => {
     if (!mRaw || !yRaw) return;
     
     try {
       const monthlyRows = mapMonthlyRows(mRaw.data, mMap);
       const ytdRows = mapYTDRows(yRaw.data, yMap);
+      const marketGoalRows = mgRaw && mgMap ? mapMarketGoalRows(mgRaw.data, mgMap) : [];
       
       if (monthlyRows.length === 0) {
         throw new Error("No rows matched for Monthly Export. Check your Mapping keys or contents!");
@@ -85,13 +105,18 @@ export default function UploadWizard({
       onDataParsed({
         monthlyRows,
         ytdRows,
+        marketGoalRows,
         monthlyFileName: mName,
-        ytdFileName: yName
+        ytdFileName: yName,
+        marketGoalsFileName: mgRaw ? mgName : ""
       });
       
       // Save valid mappings
       localStorage.setItem("origin_point_monthly_mapping", JSON.stringify(mMap));
       localStorage.setItem("origin_point_ytd_mapping", JSON.stringify(yMap));
+      if (mgMap) {
+        localStorage.setItem("origin_point_market_goals_mapping", JSON.stringify(mgMap));
+      }
       
       setSuccessMsg("Spreadsheets successfully parsed and mapped!");
       setErrorMsg(null);
@@ -180,6 +205,53 @@ export default function UploadWizard({
     }
   };
 
+  // Market Goals File Handler
+  const handleMarketGoalsFile = async (file: File) => {
+    try {
+      setErrorMsg(null);
+      const parsed = await parseSpreadsheetFile(file);
+      if (parsed.headers.length === 0) {
+        throw new Error("The Market Level Goals file appears to be empty or invalid.");
+      }
+      setMarketGoalsFile(file);
+      setMarketGoalsRaw(parsed);
+      
+      const autoMap = autoMapMarketGoalColumns(parsed.headers);
+      const savedMapping = localStorage.getItem("origin_point_market_goals_mapping");
+      let finalMap = autoMap;
+      if (savedMapping) {
+        try {
+          const parsedSaved = JSON.parse(savedMapping);
+          finalMap = {
+            marketName: parsed.headers.includes(parsedSaved.marketName) ? parsedSaved.marketName : autoMap.marketName,
+            totalMortgageTransactions: parsed.headers.includes(parsedSaved.totalMortgageTransactions) ? parsedSaved.totalMortgageTransactions : autoMap.totalMortgageTransactions,
+            totalMortgageAttachRate: parsed.headers.includes(parsedSaved.totalMortgageAttachRate) ? parsedSaved.totalMortgageAttachRate : autoMap.totalMortgageAttachRate,
+            totalRampedMortgageAttachRateGoal: parsed.headers.includes(parsedSaved.totalRampedMortgageAttachRateGoal) ? parsedSaved.totalRampedMortgageAttachRateGoal : autoMap.totalRampedMortgageAttachRateGoal,
+            progressToRampedMortgageAttachRateGoal: parsed.headers.includes(parsedSaved.progressToRampedMortgageAttachRateGoal) ? parsedSaved.progressToRampedMortgageAttachRateGoal : autoMap.progressToRampedMortgageAttachRateGoal,
+          };
+        } catch (e) {}
+      }
+      setMarketGoalsMapping(finalMap);
+
+      // If monthly and YTD are already loaded, auto-submit with the new market goals
+      if (monthlyRaw && monthlyMapping && ytdRaw && ytdMapping) {
+        processAndSubmit(
+          monthlyRaw, 
+          ytdRaw, 
+          monthlyMapping, 
+          ytdMapping, 
+          monthlyFile?.name || "Monthly Export", 
+          ytdFile?.name || "YTD Export",
+          parsed,
+          finalMap,
+          file.name
+        );
+      }
+    } catch (err: any) {
+      setErrorMsg(`Error reading Market Level Goals File: ${err.message}`);
+    }
+  };
+
   // Submit trigger when user changes mapping manually
   const handleApplyMappings = () => {
     if (!monthlyRaw) {
@@ -201,7 +273,10 @@ export default function UploadWizard({
       monthlyMapping,
       ytdMapping,
       monthlyFile?.name || "Monthly Export",
-      ytdFile?.name || "YTD Export"
+      ytdFile?.name || "YTD Export",
+      marketGoalsRaw,
+      marketGoalsMapping,
+      marketGoalsFile?.name || "Market Goals Export"
     );
   };
 
@@ -234,6 +309,20 @@ export default function UploadWizard({
     }
   };
 
+  const onDragMg = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.type === "dragover" || e.type === "dragenter") setDragOverMarketGoals(true);
+    else setDragOverMarketGoals(false);
+  };
+
+  const onDropMg = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverMarketGoals(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleMarketGoalsFile(e.dataTransfer.files[0]);
+    }
+  };
+
   return (
     <div className="bg-[#EDF4FB] border border-[#C8DCF0] rounded-xl p-5 shadow-sm w-full my-4 transition-all">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#C8DCF0] pb-4 mb-4">
@@ -245,12 +334,12 @@ export default function UploadWizard({
             </h2>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Drag & drop or select your Monthly and YTD half-year target spreadsheets.
+            Drag & drop or select your Monthly, YTD half-year target, and Market Level Goals spreadsheets.
           </p>
         </div>
         
         {/* Toggle mappings mapping configuration */}
-        {(monthlyRaw || ytdRaw) && (
+        {(monthlyRaw || ytdRaw || marketGoalsRaw) && (
           <button
             id="toggle-column-mapping-btn"
             onClick={() => setIsMappingOpen(!isMappingOpen)}
@@ -278,7 +367,7 @@ export default function UploadWizard({
       )}
 
       {/* Grid of upload zones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
         {/* Monthly File Input */}
         <div
@@ -365,12 +454,60 @@ export default function UploadWizard({
           ) : (
             <div className="flex flex-col items-center">
               <UploadCloud className="w-7 h-7 text-[#2D5A4E] mb-2 opacity-85 animate-pulse" />
-              <p className="text-xs font-medium text-gray-700">YTD Performance & Goals Export</p>
+              <p className="text-xs font-medium text-gray-700">YTD Performance & Goals</p>
               <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">
                 Upload YTD file to configure half-year goals & progress
               </p>
               <span className="text-[10px] text-gray-400 mt-2 font-mono bg-gray-50 px-2 py-0.5 border rounded">
                 {currentYtdFileName.length > 28 ? currentYtdFileName.substring(0, 25) + "..." : currentYtdFileName}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Market Goals File Input */}
+        <div
+          id="market-goals-upload-dropzone"
+          onDragOver={onDragMg}
+          onDragEnter={onDragMg}
+          onDragLeave={onDragMg}
+          onDrop={onDropMg}
+          className={`border-2 border-dashed rounded-xl p-4 transition-all text-center flex flex-col justify-center items-center cursor-pointer min-h-[140px] ${
+            dragOverMarketGoals ? "border-[#2D5A4E] bg-[#d8ece5]" : "border-[#C8DCF0] bg-white hover:border-[#2D5A4E]/60"
+          }`}
+          onClick={() => document.getElementById("market-goals-file-input")?.click()}
+        >
+          <input
+            id="market-goals-file-input"
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleMarketGoalsFile(e.target.files[0]);
+              }
+            }}
+          />
+          {marketGoalsFile ? (
+            <div className="flex flex-col items-center">
+              <div className="bg-emerald-50 p-2.5 rounded-full mb-2">
+                <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+              </div>
+              <p className="text-xs font-semibold text-gray-800 line-clamp-1 px-2">{marketGoalsFile.name}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{(marketGoalsFile.size / 1024).toFixed(1)} KB &bull; Market Goals</p>
+              <div className="mt-2 text-[10px] text-emerald-600 font-medium bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Check className="w-3 h-3" /> Configured
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <UploadCloud className="w-7 h-7 text-[#2D5A4E] mb-2 opacity-85 animate-pulse" />
+              <p className="text-xs font-medium text-gray-700">Market Level Goals (Optional)</p>
+              <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">
+                Add 3rd file for explicit market/region-level goal targets
+              </p>
+              <span className="text-[10px] text-gray-400 mt-2 font-mono bg-gray-50 px-2 py-0.5 border rounded">
+                {currentMarketGoalsFileName.length > 28 ? currentMarketGoalsFileName.substring(0, 25) + "..." : currentMarketGoalsFileName}
               </span>
             </div>
           )}
@@ -386,7 +523,7 @@ export default function UploadWizard({
             <span className="text-[10px] font-normal lowercase text-gray-400">Verifying mapping helps read dynamic Power BI exports flawlessly</span>
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Monthly settings columns selector */}
             {monthlyRaw && monthlyMapping ? (
@@ -476,6 +613,50 @@ export default function UploadWizard({
             ) : (
               <div className="flex flex-col items-center justify-center p-6 border rounded-lg bg-gray-50">
                 <p className="text-xs text-gray-400 text-center">Upload YTD Export to adjust layout maps</p>
+              </div>
+            )}
+
+            {/* Market Goals column selectors */}
+            {marketGoalsRaw && marketGoalsMapping ? (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-800 mb-2 border-l-2 border-[#2D5A4E] pl-2">
+                  Market Goals columns mapping
+                </h4>
+                <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                  {Object.entries({
+                    marketName: "Agent Compass Market/Region",
+                    totalMortgageTransactions: "Total Transactions",
+                    totalMortgageAttachRate: "Total Attach Rate",
+                    totalRampedMortgageAttachRateGoal: "Ramped Goal Target",
+                    progressToRampedMortgageAttachRateGoal: "Goal Progress (pp)",
+                  }).map(([key, label]) => {
+                    const currentSelected = marketGoalsMapping[key as keyof MarketGoalColumnMapping];
+                    return (
+                      <div key={key} className="flex flex-col gap-1">
+                        <label className="text-[11px] font-medium text-[#1C3A32]">{label}</label>
+                        <select
+                          value={currentSelected || ""}
+                          onChange={(e) => {
+                            setMarketGoalsMapping({
+                              ...marketGoalsMapping,
+                              [key]: e.target.value
+                            } as any);
+                          }}
+                          className="text-xs border border-gray-300 rounded px-2.5 py-1.5 bg-gray-50 text-gray-700 outline-none focus:border-[#2D5A4E]"
+                        >
+                          <option value="">-- Manual Select --</option>
+                          {marketGoalsRaw.headers.map((h, hIdx) => (
+                            <option key={hIdx} value={h}>{h}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-6 border rounded-lg bg-gray-50">
+                <p className="text-xs text-gray-400 text-center">Upload Market Goals to adjust layout maps (Optional)</p>
               </div>
             )}
 
