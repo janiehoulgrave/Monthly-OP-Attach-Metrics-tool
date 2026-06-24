@@ -147,8 +147,8 @@ export default function EmailPreview({
         >
           {/* Header block preview */}
           <div className="bg-[#2D5A4E] p-10 rounded-t-xl relative overflow-hidden text-white">
-            <div className="absolute -right-10 -top-12 w-48 h-48 rounded-full border border-white/5 pointer-events-none"></div>
-            <div className="absolute right-8 -top-4 w-32 h-32 rounded-full border border-white/5 pointer-events-none"></div>
+            <div className="absolute -right-20 -top-24 w-96 h-96 rounded-full border border-white/5 pointer-events-none"></div>
+            <div className="absolute right-16 -top-8 w-64 h-64 rounded-full border border-white/5 pointer-events-none"></div>
 
             {/* OriginPoint Logo with support for physical logo.png from repository public folder */}
             <img
