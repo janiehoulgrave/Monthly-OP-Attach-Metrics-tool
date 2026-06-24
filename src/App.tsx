@@ -29,6 +29,52 @@ import { auth } from "./firebase";
 import Login from "./components/Login";
 import ApprovedUsersModal from "./components/ApprovedUsersModal";
 
+export function normalizeRegionNameForDropdown(r: string | undefined): string {
+  if (!r) return "";
+  const rr = r.toLowerCase().trim();
+  if (
+    rr === "baltimore" ||
+    rr === "washington dc area" ||
+    rr === "washington, dc area" ||
+    rr === "washington dc" ||
+    rr === "dc area" ||
+    rr === "dc" ||
+    rr.includes("baltimore") ||
+    (rr.includes("washington") && rr.includes("dc"))
+  ) {
+    return "Washington, DC Area + Baltimore";
+  }
+  return r;
+}
+
+export function doesRowMatchRegion(rowRegion: string | undefined, currentRegion: string): boolean {
+  if (!rowRegion || !currentRegion) return false;
+  const rr = rowRegion.toLowerCase().trim();
+  const cr = currentRegion.toLowerCase().trim();
+  if (rr === cr) return true;
+  
+  if (cr === "washington, dc area + baltimore") {
+    return (
+      rr === "washington, dc area + baltimore" ||
+      rr === "baltimore" ||
+      rr === "baltimore region" ||
+      rr.includes("baltimore") ||
+      rr.includes("washington") ||
+      rr.includes("dc area") ||
+      rr === "dc"
+    );
+  }
+  return false;
+}
+
+export function isBaltimoreOffice(row: MonthlyRow): boolean {
+  const rLower = (row.region || "").toLowerCase();
+  const oLower = (row.agentOffice || "").toLowerCase();
+  if (rLower.includes("baltimore")) return true;
+  if (oLower.includes("ellicott city") || oLower.includes("annapolis")) return true;
+  return false;
+}
+
 export default function App() {
   // Authentication & Control State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -120,19 +166,19 @@ export default function App() {
 
     // Dynamic region selection: compile unique regions present in the uploaded monthly rows
     const uniqueUploadedRegions = Array.from(
-      new Set(nextMonthly.map(r => r.region).filter(Boolean))
+      new Set(nextMonthly.map(r => normalizeRegionNameForDropdown(r.region)).filter(Boolean))
     ).sort();
 
     if (uniqueUploadedRegions.length > 0) {
       // Find if our current selection is in the uploaded list (case-insensitive and trimmed)
       const currentExists = uniqueUploadedRegions.find(
-        r => r.toLowerCase().trim() === selectedRegion.toLowerCase().trim()
+        r => (r as string).toLowerCase().trim() === selectedRegion.toLowerCase().trim()
       );
       if (currentExists) {
-        setSelectedRegion(currentExists);
+        setSelectedRegion(currentExists as string);
       } else {
         // Fallback to the first region available in the uploaded dataset
-        setSelectedRegion(uniqueUploadedRegions[0]);
+        setSelectedRegion(uniqueUploadedRegions[0] as string);
       }
     }
     
@@ -196,7 +242,7 @@ export default function App() {
     saveToHistory(monthlyRows, ytdRows);
 
     const newId = `monthly_row_${Date.now()}`;
-    const officesCount = monthlyRows.filter(r => r.region.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && !r.isTotalRow).length;
+    const officesCount = monthlyRows.filter(r => doesRowMatchRegion(r.region, selectedRegion) && !r.isTotalRow).length;
     const defaultOfficeName = `New Office ${officesCount + 1}`;
 
     const newMonthlyRow: MonthlyRow = {
@@ -237,7 +283,7 @@ export default function App() {
 
     // Clean up corresponding YTD entries as well
     setYtdRows(prev => prev.filter(y => 
-      !(y.region.toLowerCase().trim() === rowToDelete.region.toLowerCase().trim() &&
+      !(doesRowMatchRegion(y.region, rowToDelete.region) &&
         y.agentOffice.toLowerCase().trim() === rowToDelete.agentOffice.toLowerCase().trim())
     ));
 
@@ -256,7 +302,7 @@ export default function App() {
       let officeInsertIdx = 0;
 
       prev.forEach(row => {
-        const isFromActiveRegion = row.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
+        const isFromActiveRegion = doesRowMatchRegion(row.region, selectedRegion);
         const isStandardOffice = isFromActiveRegion && !row.isTotalRow;
 
         if (isStandardOffice) {
@@ -275,10 +321,10 @@ export default function App() {
     // We match the order of the newly reordered active offices to keep the trend chart and table aligned!
     setYtdRows(prev => {
       const result: YTDRow[] = [];
-      const activeYtdRows = prev.filter(y => y.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim());
+      const activeYtdRows = prev.filter(y => doesRowMatchRegion(y.region, selectedRegion));
 
       prev.forEach(yRow => {
-        const isFromActiveRegion = yRow.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
+        const isFromActiveRegion = doesRowMatchRegion(yRow.region, selectedRegion);
         if (!isFromActiveRegion) {
           result.push(yRow);
         }
@@ -328,9 +374,9 @@ export default function App() {
     // Only merge YTD rows if a YTD file was actually uploaded
     const isYtdUploaded = ytdFileName !== "Upload your data";
     if (isYtdUploaded) {
-      // Find matching YTD row by agentOffice and region (case insensitive)
+      // Find matching YTD row by agentOffice and region (case insensitive, with normalized region name)
       const match = ytdRows.find(y => 
-        y.region.toLowerCase().trim() === mRow.region.toLowerCase().trim() &&
+        normalizeRegionNameForDropdown(y.region).toLowerCase().trim() === normalizeRegionNameForDropdown(mRow.region).toLowerCase().trim() &&
         y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
       );
       if (match) {
@@ -346,7 +392,7 @@ export default function App() {
   });
 
   // Derive list of available regions depending on whether we are using preloaded or uploaded datasets
-  const parsedRegions = Array.from(new Set(mergedMonthlyRows.map(r => r.region).filter(Boolean))).sort();
+  const parsedRegions = Array.from(new Set(mergedMonthlyRows.map(r => normalizeRegionNameForDropdown(r.region)).filter(Boolean))).sort();
   const availableRegions = isUsingPreloaded
     ? REGIONS_LIST
     : parsedRegions.length > 0
@@ -355,7 +401,7 @@ export default function App() {
 
   // Filter for raw rows of the selected region that have a non-empty office name
   const rawCurrentRegionRows = mergedMonthlyRows.filter(
-    r => r.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && r.agentOffice.trim() !== ""
+    r => doesRowMatchRegion(r.region, selectedRegion) && r.agentOffice.trim() !== ""
   );
 
   // Divide into standard office rows and summary totals
@@ -394,10 +440,70 @@ export default function App() {
     isTotalRow: true
   };
 
-  const totals = hasExplicitTotalRow ? explicitTotals : [computedTotalRow];
-  const primaryTotalRow = totals[0];
+  // Computations for combined Baltimore and DC totals
+  const dcOffices = offices.filter(o => !isBaltimoreOffice(o));
+  const dcSumBuyside = dcOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+  const dcSumFunded = dcOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+  const dcAttachRate = dcSumBuyside > 0 ? parseFloat(((dcSumFunded / dcSumBuyside) * 100).toFixed(2)) : 0;
+  const dcValidFirstHalfRates = dcOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
+  const dcAvgFirstHalfRate = dcValidFirstHalfRates.length > 0 
+    ? parseFloat((dcValidFirstHalfRates.reduce((sum, v) => sum + v, 0) / dcValidFirstHalfRates.length).toFixed(2))
+    : dcAttachRate;
+  const dcValidTargets = dcOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
+  const dcAvgFirstHalfTarget = dcValidTargets.length > 0
+    ? parseFloat((dcValidTargets.reduce((sum, v) => sum + v, 0) / dcValidTargets.length).toFixed(2))
+    : 2.50;
+  const dcProgress = parseFloat((dcAttachRate - dcAvgFirstHalfTarget).toFixed(1));
 
-  // Finalized currentRegionMonthlyRows list which ensures standard offices + exactly 1 total row (explicit or computed)
+  const computedDcTotalRow: MonthlyRow = {
+    id: `computed-total-dc-${Date.now()}`,
+    agentOffice: "DC Area total",
+    region: "Washington, DC Area + Baltimore",
+    totalFundedOPLoans: dcSumFunded,
+    totalBuysideDeals: dcSumBuyside,
+    attachRate: dcAttachRate,
+    firstHalfAttachRate: dcAvgFirstHalfRate,
+    firstHalfTarget: dcAvgFirstHalfTarget,
+    progressToGoal: dcProgress,
+    isTotalRow: true
+  };
+
+  const baltimoreOffices = offices.filter(o => isBaltimoreOffice(o));
+  const baltimoreSumBuyside = baltimoreOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+  const baltimoreSumFunded = baltimoreOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+  const baltimoreAttachRate = baltimoreSumBuyside > 0 ? parseFloat(((baltimoreSumFunded / baltimoreSumBuyside) * 100).toFixed(2)) : 0;
+  const baltimoreValidFirstHalfRates = baltimoreOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
+  const baltimoreAvgFirstHalfRate = baltimoreValidFirstHalfRates.length > 0 
+    ? parseFloat((baltimoreValidFirstHalfRates.reduce((sum, v) => sum + v, 0) / baltimoreValidFirstHalfRates.length).toFixed(2))
+    : baltimoreAttachRate;
+  const baltimoreValidTargets = baltimoreOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
+  const baltimoreAvgFirstHalfTarget = baltimoreValidTargets.length > 0
+    ? parseFloat((baltimoreValidTargets.reduce((sum, v) => sum + v, 0) / baltimoreValidTargets.length).toFixed(2))
+    : 2.50;
+  const baltimoreProgress = parseFloat((baltimoreAttachRate - baltimoreAvgFirstHalfTarget).toFixed(1));
+
+  const computedBaltimoreTotalRow: MonthlyRow = {
+    id: `computed-total-baltimore-${Date.now()}`,
+    agentOffice: "Baltimore total",
+    region: "Washington, DC Area + Baltimore",
+    totalFundedOPLoans: baltimoreSumFunded,
+    totalBuysideDeals: baltimoreSumBuyside,
+    attachRate: baltimoreAttachRate,
+    firstHalfAttachRate: baltimoreAvgFirstHalfRate,
+    firstHalfTarget: baltimoreAvgFirstHalfTarget,
+    progressToGoal: baltimoreProgress,
+    isTotalRow: true
+  };
+
+  const totals = selectedRegion === "Washington, DC Area + Baltimore"
+    ? [computedDcTotalRow, computedBaltimoreTotalRow]
+    : hasExplicitTotalRow
+    ? explicitTotals
+    : [computedTotalRow];
+
+  const primaryTotalRow = selectedRegion === "Washington, DC Area + Baltimore" ? computedTotalRow : (totals[0] || computedTotalRow);
+
+  // Finalized currentRegionMonthlyRows list which ensures standard offices + totals
   const currentRegionMonthlyRows = [
     ...offices,
     ...totals
