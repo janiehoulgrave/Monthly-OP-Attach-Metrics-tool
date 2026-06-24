@@ -9,6 +9,7 @@ export interface MonthlyRow {
   progressToGoal: number; // e.g. +0.9 or -2.7
   isTotalRow?: boolean; // detected as total/summary from keywords
   id: string; // unique identifier
+  originalRegion?: string;
 }
 
 export interface YTDRow {
@@ -18,6 +19,7 @@ export interface YTDRow {
   totalRampedMortgageAttachRateGoal: number; // as float e.g. 2.50
   progressToRampedMortgageAttachRateGoal: number; // e.g. +3.2 or -1.5
   id: string; // unique identifier
+  originalRegion?: string;
 }
 
 export interface MonthlyColumnMapping {

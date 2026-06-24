@@ -16,10 +16,10 @@ import {
 
 interface UploadWizardProps {
   onDataParsed: (payload: {
-    monthlyRows?: MonthlyRow[];
-    ytdRows?: YTDRow[];
-    monthlyFileName?: string;
-    ytdFileName?: string;
+    monthlyRows: MonthlyRow[];
+    ytdRows: YTDRow[];
+    monthlyFileName: string;
+    ytdFileName: string;
   }) => void;
   currentMonthlyFileName?: string;
   currentYtdFileName?: string;
@@ -63,45 +63,36 @@ export default function UploadWizard({
     }
   }, []);
 
-  // Process and submit individual or combined files
+  // Process files when raw data and mapping are resolved
   const processAndSubmit = (
     mRaw: typeof monthlyRaw, 
     yRaw: typeof ytdRaw, 
-    mMap: MonthlyColumnMapping | null, 
-    yMap: YTDColumnMapping | null,
-    mName?: string,
-    yName?: string
+    mMap: MonthlyColumnMapping, 
+    yMap: YTDColumnMapping,
+    mName: string,
+    yName: string
   ) => {
+    if (!mRaw || !yRaw) return;
+    
     try {
-      const payload: {
-        monthlyRows?: MonthlyRow[];
-        ytdRows?: YTDRow[];
-        monthlyFileName?: string;
-        ytdFileName?: string;
-      } = {};
-
-      if (mRaw && mMap) {
-        const monthlyRows = mapMonthlyRows(mRaw.data, mMap);
-        if (monthlyRows.length === 0) {
-          throw new Error("No rows matched for Monthly Export. Check your Mapping keys or contents!");
-        }
-        payload.monthlyRows = monthlyRows;
-        payload.monthlyFileName = mName || "Monthly Export";
-        localStorage.setItem("origin_point_monthly_mapping", JSON.stringify(mMap));
+      const monthlyRows = mapMonthlyRows(mRaw.data, mMap);
+      const ytdRows = mapYTDRows(yRaw.data, yMap);
+      
+      if (monthlyRows.length === 0) {
+        throw new Error("No rows matched for Monthly Export. Check your Mapping keys or contents!");
       }
-
-      if (yRaw && yMap) {
-        const ytdRows = mapYTDRows(yRaw.data, yMap);
-        payload.ytdRows = ytdRows;
-        payload.ytdFileName = yName || "YTD Export";
-        localStorage.setItem("origin_point_ytd_mapping", JSON.stringify(yMap));
-      }
-
-      if (!payload.monthlyRows && !payload.ytdRows) {
-        return;
-      }
-
-      onDataParsed(payload);
+      
+      onDataParsed({
+        monthlyRows,
+        ytdRows,
+        monthlyFileName: mName,
+        ytdFileName: yName
+      });
+      
+      // Save valid mappings
+      localStorage.setItem("origin_point_monthly_mapping", JSON.stringify(mMap));
+      localStorage.setItem("origin_point_ytd_mapping", JSON.stringify(yMap));
+      
       setSuccessMsg("Spreadsheets successfully parsed and mapped!");
       setErrorMsg(null);
       setTimeout(() => setSuccessMsg(null), 4000);
@@ -143,8 +134,10 @@ export default function UploadWizard({
       }
       setMonthlyMapping(finalMap);
 
-      // Immediately process and submit the uploaded Monthly file
-      processAndSubmit(parsed, ytdRaw, finalMap, ytdMapping, file.name, ytdFile?.name);
+      // If YTD is already loaded, auto-submit
+      if (ytdRaw && ytdMapping) {
+        processAndSubmit(parsed, ytdRaw, finalMap, ytdMapping, file.name, ytdFile?.name || "YTD Export");
+      }
     } catch (err: any) {
       setErrorMsg(`Error reading Monthly File: ${err.message}`);
     }
@@ -178,8 +171,10 @@ export default function UploadWizard({
       }
       setYtdMapping(finalMap);
 
-      // Immediately process and submit the uploaded YTD file
-      processAndSubmit(monthlyRaw, parsed, monthlyMapping, finalMap, monthlyFile?.name, file.name);
+      // If monthly is already loaded, auto-submit
+      if (monthlyRaw && monthlyMapping) {
+        processAndSubmit(monthlyRaw, parsed, monthlyMapping, finalMap, monthlyFile?.name || "Monthly Export", file.name);
+      }
     } catch (err: any) {
       setErrorMsg(`Error reading YTD File: ${err.message}`);
     }
@@ -187,8 +182,16 @@ export default function UploadWizard({
 
   // Submit trigger when user changes mapping manually
   const handleApplyMappings = () => {
-    if (!monthlyRaw && !ytdRaw) {
-      setErrorMsg("Please upload at least one Power BI Excel/CSV export first.");
+    if (!monthlyRaw) {
+      setErrorMsg("Please upload the Monthly Power BI Excel/CSV export first.");
+      return;
+    }
+    if (!ytdRaw) {
+      setErrorMsg("Please upload the YTD Power BI Excel/CSV export first.");
+      return;
+    }
+    if (!monthlyMapping || !ytdMapping) {
+      setErrorMsg("Column mapping configuration is incomplete.");
       return;
     }
 
@@ -197,8 +200,8 @@ export default function UploadWizard({
       ytdRaw,
       monthlyMapping,
       ytdMapping,
-      monthlyFile?.name,
-      ytdFile?.name
+      monthlyFile?.name || "Monthly Export",
+      ytdFile?.name || "YTD Export"
     );
   };
 

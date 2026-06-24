@@ -122,6 +122,20 @@ export function checkIsTotalRow(officeName: string): boolean {
   );
 }
 
+// Normalizes region names to merge Washington, DC Area and Baltimore
+export function normalizeRegionName(regionName: string): string {
+  const norm = regionName.toLowerCase().trim();
+  if (
+    norm.includes("washington") ||
+    norm.includes("baltimore") ||
+    norm.includes("dc area") ||
+    norm === "dc"
+  ) {
+    return "Washington, DC Area + Baltimore";
+  }
+  return regionName;
+}
+
 // Parse monthly data
 export function mapMonthlyRows(
   jsonData: any[],
@@ -130,6 +144,7 @@ export function mapMonthlyRows(
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
+    const normalizedRegion = normalizeRegionName(rawRegion);
     const totalFunded = Math.round(parseNumber(row[mapping.totalFundedOPLoans]));
     const totalBuyside = Math.round(parseNumber(row[mapping.totalBuysideDeals]));
     
@@ -163,22 +178,25 @@ export function mapMonthlyRows(
     return {
       id: `uploaded-m-${idx}-${Date.now()}`,
       agentOffice: rawOffice,
-      region: rawRegion,
+      region: normalizedRegion,
       totalFundedOPLoans: totalFunded,
       totalBuysideDeals: totalBuyside,
       attachRate,
       firstHalfAttachRate: firstHalfRate,
       firstHalfTarget: firstHalfTarget,
       progressToGoal,
-      isTotalRow: checkIsTotalRow(rawOffice)
+      isTotalRow: checkIsTotalRow(rawOffice),
+      originalRegion: rawRegion
     };
   }).filter(r => {
     const officeLower = r.agentOffice.toLowerCase().trim();
     const regionLower = r.region.toLowerCase().trim();
+    const rawRegionLower = (r.originalRegion || "").toLowerCase().trim();
     return (
       officeLower !== "" &&
       regionLower !== "" &&
       officeLower !== regionLower &&
+      officeLower !== rawRegionLower &&
       !officeLower.includes("agent office") &&
       !officeLower.includes("office name")
     );
@@ -193,6 +211,7 @@ export function mapYTDRows(
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
+    const normalizedRegion = normalizeRegionName(rawRegion);
     const totalMortgageAttachRate = parsePercentage(row[mapping.totalMortgageAttachRate]);
     const totalRampedMortgageAttachRateGoal = parsePercentage(row[mapping.totalRampedMortgageAttachRateGoal]);
     const progressToRampedMortgageAttachRateGoal = parsePercentage(row[mapping.progressToRampedMortgageAttachRateGoal]);
@@ -200,18 +219,21 @@ export function mapYTDRows(
     return {
       id: `uploaded-ytd-${idx}-${Date.now()}`,
       agentOffice: rawOffice,
-      region: rawRegion,
+      region: normalizedRegion,
       totalMortgageAttachRate,
       totalRampedMortgageAttachRateGoal,
-      progressToRampedMortgageAttachRateGoal
+      progressToRampedMortgageAttachRateGoal,
+      originalRegion: rawRegion
     };
   }).filter(r => {
     const officeLower = r.agentOffice.toLowerCase().trim();
     const regionLower = r.region.toLowerCase().trim();
+    const rawRegionLower = (r.originalRegion || "").toLowerCase().trim();
     return (
       officeLower !== "" &&
       regionLower !== "" &&
       officeLower !== regionLower &&
+      officeLower !== rawRegionLower &&
       !officeLower.includes("agent office") &&
       !officeLower.includes("office name")
     );

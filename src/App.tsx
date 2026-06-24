@@ -29,52 +29,6 @@ import { auth } from "./firebase";
 import Login from "./components/Login";
 import ApprovedUsersModal from "./components/ApprovedUsersModal";
 
-export function normalizeRegionNameForDropdown(r: string | undefined): string {
-  if (!r) return "";
-  const rr = r.toLowerCase().trim();
-  if (
-    rr === "baltimore" ||
-    rr === "washington dc area" ||
-    rr === "washington, dc area" ||
-    rr === "washington dc" ||
-    rr === "dc area" ||
-    rr === "dc" ||
-    rr.includes("baltimore") ||
-    (rr.includes("washington") && rr.includes("dc"))
-  ) {
-    return "Washington, DC Area + Baltimore";
-  }
-  return r;
-}
-
-export function doesRowMatchRegion(rowRegion: string | undefined, currentRegion: string): boolean {
-  if (!rowRegion || !currentRegion) return false;
-  const rr = rowRegion.toLowerCase().trim();
-  const cr = currentRegion.toLowerCase().trim();
-  if (rr === cr) return true;
-  
-  if (cr === "washington, dc area + baltimore") {
-    return (
-      rr === "washington, dc area + baltimore" ||
-      rr === "baltimore" ||
-      rr === "baltimore region" ||
-      rr.includes("baltimore") ||
-      rr.includes("washington") ||
-      rr.includes("dc area") ||
-      rr === "dc"
-    );
-  }
-  return false;
-}
-
-export function isBaltimoreOffice(row: MonthlyRow): boolean {
-  const rLower = (row.region || "").toLowerCase();
-  const oLower = (row.agentOffice || "").toLowerCase();
-  if (rLower.includes("baltimore")) return true;
-  if (oLower.includes("ellicott city") || oLower.includes("annapolis")) return true;
-  return false;
-}
-
 export default function App() {
   // Authentication & Control State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -104,7 +58,9 @@ export default function App() {
 
   // Metadata Text Fields (user customizable)
   const [reportingPeriod, setReportingPeriod] = useState<string>("April 2026");
-  const [tagline, setTagline] = useState<string>("");
+  const [tagline, setTagline] = useState<string>(
+    "Results trending ahead of plan on path to exceed first-half goals."
+  );
   const [disclaimer, setDisclaimer] = useState<string>(
     "In certain cases, market totals include transactions from all regional offices (including those unlisted), which may result in minor variances between office-level aggregates and total market Attach Rates."
   );
@@ -135,63 +91,46 @@ export default function App() {
     // Adapt tagline based on region
     if (region === DEFAULT_REGION) {
       setReportingPeriod("April 2026");
-      setTagline("");
+      setTagline("Results trending ahead of plan on path to exceed first-half goals.");
     } else {
       setReportingPeriod("Q2 2026 Period");
-      setTagline("");
+      setTagline("Continuous operational expansion shows robust performance trending above targets.");
     }
   };
 
   // Callback triggered when files are processed by UploadWizard
   const handleDataParsed = (payload: {
-    monthlyRows?: MonthlyRow[];
-    ytdRows?: YTDRow[];
-    monthlyFileName?: string;
-    ytdFileName?: string;
+    monthlyRows: MonthlyRow[];
+    ytdRows: YTDRow[];
+    monthlyFileName: string;
+    ytdFileName: string;
   }) => {
+    setMonthlyRows(payload.monthlyRows);
+    setYtdRows(payload.ytdRows);
+    setMonthlyFileName(payload.monthlyFileName);
+    setYtdFileName(payload.ytdFileName);
     setIsUsingPreloaded(false);
-
-    // Auto-populate reporting period with previous month and current year based on when data is uploaded
-    const currentDate = new Date();
-    const prevMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-    const previousMonthName = prevMonthDate.toLocaleString('default', { month: 'long' });
-    const currentYearValue = prevMonthDate.getFullYear();
-    setReportingPeriod(`${previousMonthName} ${currentYearValue}`);
-
-    // Set tagline to empty string on fresh upload
-    setTagline("");
-
-    let nextMonthly = monthlyRows;
-    if (payload.monthlyRows) {
-      nextMonthly = payload.monthlyRows;
-      setMonthlyRows(payload.monthlyRows);
-      if (payload.monthlyFileName) setMonthlyFileName(payload.monthlyFileName);
-    }
-    if (payload.ytdRows) {
-      setYtdRows(payload.ytdRows);
-      if (payload.ytdFileName) setYtdFileName(payload.ytdFileName);
-    }
 
     // Dynamic region selection: compile unique regions present in the uploaded monthly rows
     const uniqueUploadedRegions = Array.from(
-      new Set(nextMonthly.map(r => normalizeRegionNameForDropdown(r.region)).filter(Boolean))
+      new Set(payload.monthlyRows.map(r => r.region).filter(Boolean))
     ).sort();
 
     if (uniqueUploadedRegions.length > 0) {
       // Find if our current selection is in the uploaded list (case-insensitive and trimmed)
       const currentExists = uniqueUploadedRegions.find(
-        r => (r as string).toLowerCase().trim() === selectedRegion.toLowerCase().trim()
+        r => r.toLowerCase().trim() === selectedRegion.toLowerCase().trim()
       );
       if (currentExists) {
-        setSelectedRegion(currentExists as string);
+        setSelectedRegion(currentExists);
       } else {
         // Fallback to the first region available in the uploaded dataset
-        setSelectedRegion(uniqueUploadedRegions[0] as string);
+        setSelectedRegion(uniqueUploadedRegions[0]);
       }
     }
     
     setHistory([]); // clear history on fresh import
-    triggerToast("Data imported successfully!");
+    triggerToast("Datasets uploaded and mapped successfully!");
   };
 
   // Undo state history stack
@@ -250,7 +189,7 @@ export default function App() {
     saveToHistory(monthlyRows, ytdRows);
 
     const newId = `monthly_row_${Date.now()}`;
-    const officesCount = monthlyRows.filter(r => doesRowMatchRegion(r.region, selectedRegion) && !r.isTotalRow).length;
+    const officesCount = monthlyRows.filter(r => r.region.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && !r.isTotalRow).length;
     const defaultOfficeName = `New Office ${officesCount + 1}`;
 
     const newMonthlyRow: MonthlyRow = {
@@ -291,7 +230,7 @@ export default function App() {
 
     // Clean up corresponding YTD entries as well
     setYtdRows(prev => prev.filter(y => 
-      !(doesRowMatchRegion(y.region, rowToDelete.region) &&
+      !(y.region.toLowerCase().trim() === rowToDelete.region.toLowerCase().trim() &&
         y.agentOffice.toLowerCase().trim() === rowToDelete.agentOffice.toLowerCase().trim())
     ));
 
@@ -310,7 +249,7 @@ export default function App() {
       let officeInsertIdx = 0;
 
       prev.forEach(row => {
-        const isFromActiveRegion = doesRowMatchRegion(row.region, selectedRegion);
+        const isFromActiveRegion = row.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
         const isStandardOffice = isFromActiveRegion && !row.isTotalRow;
 
         if (isStandardOffice) {
@@ -329,10 +268,10 @@ export default function App() {
     // We match the order of the newly reordered active offices to keep the trend chart and table aligned!
     setYtdRows(prev => {
       const result: YTDRow[] = [];
-      const activeYtdRows = prev.filter(y => doesRowMatchRegion(y.region, selectedRegion));
+      const activeYtdRows = prev.filter(y => y.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim());
 
       prev.forEach(yRow => {
-        const isFromActiveRegion = doesRowMatchRegion(yRow.region, selectedRegion);
+        const isFromActiveRegion = yRow.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim();
         if (!isFromActiveRegion) {
           result.push(yRow);
         }
@@ -379,28 +318,24 @@ export default function App() {
   // FILTER LOGIC & DERIVATION of KPIs
   // Dynamic merge of monthly and YTD rows
   const mergedMonthlyRows = monthlyRows.map(mRow => {
-    // Only merge YTD rows if a YTD file was actually uploaded
-    const isYtdUploaded = ytdFileName !== "Upload your data";
-    if (isYtdUploaded) {
-      // Find matching YTD row by agentOffice and region (case insensitive, with normalized region name)
-      const match = ytdRows.find(y => 
-        normalizeRegionNameForDropdown(y.region).toLowerCase().trim() === normalizeRegionNameForDropdown(mRow.region).toLowerCase().trim() &&
-        y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
-      );
-      if (match) {
-        return {
-          ...mRow,
-          firstHalfAttachRate: match.totalMortgageAttachRate,
-          firstHalfTarget: match.totalRampedMortgageAttachRateGoal,
-          progressToGoal: match.progressToRampedMortgageAttachRateGoal
-        };
-      }
+    // Find matching YTD row by agentOffice and region (case insensitive)
+    const match = ytdRows.find(y => 
+      y.region.toLowerCase().trim() === mRow.region.toLowerCase().trim() &&
+      y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
+    );
+    if (match) {
+      return {
+        ...mRow,
+        firstHalfAttachRate: match.totalMortgageAttachRate,
+        firstHalfTarget: match.totalRampedMortgageAttachRateGoal,
+        progressToGoal: match.progressToRampedMortgageAttachRateGoal
+      };
     }
     return mRow;
   });
 
   // Derive list of available regions depending on whether we are using preloaded or uploaded datasets
-  const parsedRegions = Array.from(new Set(mergedMonthlyRows.map(r => normalizeRegionNameForDropdown(r.region)).filter(Boolean))).sort();
+  const parsedRegions = Array.from(new Set(mergedMonthlyRows.map(r => r.region).filter(Boolean))).sort();
   const availableRegions = isUsingPreloaded
     ? REGIONS_LIST
     : parsedRegions.length > 0
@@ -409,7 +344,7 @@ export default function App() {
 
   // Filter for raw rows of the selected region that have a non-empty office name
   const rawCurrentRegionRows = mergedMonthlyRows.filter(
-    r => doesRowMatchRegion(r.region, selectedRegion) && r.agentOffice.trim() !== ""
+    r => r.region?.toLowerCase().trim() === selectedRegion.toLowerCase().trim() && r.agentOffice.trim() !== ""
   );
 
   // Divide into standard office rows and summary totals
@@ -448,68 +383,88 @@ export default function App() {
     isTotalRow: true
   };
 
-  // Computations for combined Baltimore and DC totals
-  const dcOffices = offices.filter(o => !isBaltimoreOffice(o));
-  const dcSumBuyside = dcOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
-  const dcSumFunded = dcOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
-  const dcAttachRate = dcSumBuyside > 0 ? parseFloat(((dcSumFunded / dcSumBuyside) * 100).toFixed(2)) : 0;
-  const dcValidFirstHalfRates = dcOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
-  const dcAvgFirstHalfRate = dcValidFirstHalfRates.length > 0 
-    ? parseFloat((dcValidFirstHalfRates.reduce((sum, v) => sum + v, 0) / dcValidFirstHalfRates.length).toFixed(2))
-    : dcAttachRate;
-  const dcValidTargets = dcOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
-  const dcAvgFirstHalfTarget = dcValidTargets.length > 0
-    ? parseFloat((dcValidTargets.reduce((sum, v) => sum + v, 0) / dcValidTargets.length).toFixed(2))
-    : 2.50;
-  const dcProgress = parseFloat((dcAttachRate - dcAvgFirstHalfTarget).toFixed(1));
+  let totals: MonthlyRow[] = [];
+  let primaryTotalRow: MonthlyRow = computedTotalRow;
 
-  const computedDcTotalRow: MonthlyRow = {
-    id: `computed-total-dc-${Date.now()}`,
-    agentOffice: "DC Area total",
-    region: "Washington, DC Area + Baltimore",
-    totalFundedOPLoans: dcSumFunded,
-    totalBuysideDeals: dcSumBuyside,
-    attachRate: dcAttachRate,
-    firstHalfAttachRate: dcAvgFirstHalfRate,
-    firstHalfTarget: dcAvgFirstHalfTarget,
-    progressToGoal: dcProgress,
-    isTotalRow: true
-  };
+  if (selectedRegion === "Washington, DC Area + Baltimore") {
+    const isBaltimoreRow = (row: MonthlyRow) => {
+      const officeNorm = row.agentOffice.toLowerCase();
+      const origRegionNorm = (row.originalRegion || "").toLowerCase();
+      if (origRegionNorm.includes("baltimore")) return true;
+      if (officeNorm.includes("ellicott") || officeNorm.includes("annapolis") || officeNorm.includes("baltimore")) return true;
+      return false;
+    };
+    
+    const dcOffices = offices.filter(r => !isBaltimoreRow(r));
+    const baltimoreOffices = offices.filter(r => isBaltimoreRow(r));
+    
+    const dcBuyside = dcOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+    const dcFunded = dcOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+    const dcAttachRate = dcBuyside > 0 ? parseFloat(((dcFunded / dcBuyside) * 100).toFixed(2)) : 0;
+    
+    const dcValidFirstHalf = dcOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
+    const dcAvgFirstHalfRate = dcValidFirstHalf.length > 0 
+      ? parseFloat((dcValidFirstHalf.reduce((sum, v) => sum + v, 0) / dcValidFirstHalf.length).toFixed(2))
+      : dcAttachRate;
+      
+    const dcValidTargets = dcOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
+    const dcAvgFirstHalfTarget = dcValidTargets.length > 0
+      ? parseFloat((dcValidTargets.reduce((sum, v) => sum + v, 0) / dcValidTargets.length).toFixed(2))
+      : 2.50;
+      
+    const dcProgress = parseFloat((dcAttachRate - dcAvgFirstHalfTarget).toFixed(1));
 
-  const baltimoreOffices = offices.filter(o => isBaltimoreOffice(o));
-  const baltimoreSumBuyside = baltimoreOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
-  const baltimoreSumFunded = baltimoreOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
-  const baltimoreAttachRate = baltimoreSumBuyside > 0 ? parseFloat(((baltimoreSumFunded / baltimoreSumBuyside) * 100).toFixed(2)) : 0;
-  const baltimoreValidFirstHalfRates = baltimoreOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
-  const baltimoreAvgFirstHalfRate = baltimoreValidFirstHalfRates.length > 0 
-    ? parseFloat((baltimoreValidFirstHalfRates.reduce((sum, v) => sum + v, 0) / baltimoreValidFirstHalfRates.length).toFixed(2))
-    : baltimoreAttachRate;
-  const baltimoreValidTargets = baltimoreOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
-  const baltimoreAvgFirstHalfTarget = baltimoreValidTargets.length > 0
-    ? parseFloat((baltimoreValidTargets.reduce((sum, v) => sum + v, 0) / baltimoreValidTargets.length).toFixed(2))
-    : 2.50;
-  const baltimoreProgress = parseFloat((baltimoreAttachRate - baltimoreAvgFirstHalfTarget).toFixed(1));
+    const balBuyside = baltimoreOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
+    const balFunded = baltimoreOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
+    const balAttachRate = balBuyside > 0 ? parseFloat(((balFunded / balBuyside) * 100).toFixed(2)) : 0;
+    
+    const balValidFirstHalf = baltimoreOffices.map(r => r.firstHalfAttachRate).filter(v => v > 0);
+    const balAvgFirstHalfRate = balValidFirstHalf.length > 0 
+      ? parseFloat((balValidFirstHalf.reduce((sum, v) => sum + v, 0) / balValidFirstHalf.length).toFixed(2))
+      : balAttachRate;
+      
+    const balValidTargets = baltimoreOffices.map(r => r.firstHalfTarget).filter(t => t > 0);
+    const balAvgFirstHalfTarget = balValidTargets.length > 0
+      ? parseFloat((balValidTargets.reduce((sum, v) => sum + v, 0) / balValidTargets.length).toFixed(2))
+      : 2.50;
+      
+    const balProgress = parseFloat((balAttachRate - balAvgFirstHalfTarget).toFixed(1));
 
-  const computedBaltimoreTotalRow: MonthlyRow = {
-    id: `computed-total-baltimore-${Date.now()}`,
-    agentOffice: "Baltimore total",
-    region: "Washington, DC Area + Baltimore",
-    totalFundedOPLoans: baltimoreSumFunded,
-    totalBuysideDeals: baltimoreSumBuyside,
-    attachRate: baltimoreAttachRate,
-    firstHalfAttachRate: baltimoreAvgFirstHalfRate,
-    firstHalfTarget: baltimoreAvgFirstHalfTarget,
-    progressToGoal: baltimoreProgress,
-    isTotalRow: true
-  };
+    const explicitDcTotal = explicitTotals.find(r => r.agentOffice.toLowerCase().includes("dc") || r.agentOffice.toLowerCase().includes("washington") || r.agentOffice.toLowerCase().includes("capitol") || r.agentOffice.toLowerCase().includes("georgetown"));
+    const explicitBalTotal = explicitTotals.find(r => r.agentOffice.toLowerCase().includes("baltimore"));
 
-  const totals = selectedRegion === "Washington, DC Area + Baltimore"
-    ? [computedDcTotalRow, computedBaltimoreTotalRow]
-    : hasExplicitTotalRow
-    ? explicitTotals
-    : [computedTotalRow];
+    const dcTotalRow: MonthlyRow = {
+      id: explicitDcTotal?.id || `dc-total-${Date.now()}`,
+      agentOffice: "DC Area total",
+      region: "Washington, DC Area + Baltimore",
+      totalFundedOPLoans: explicitDcTotal ? explicitDcTotal.totalFundedOPLoans : dcFunded,
+      totalBuysideDeals: explicitDcTotal ? explicitDcTotal.totalBuysideDeals : dcBuyside,
+      attachRate: explicitDcTotal ? explicitDcTotal.attachRate : dcAttachRate,
+      firstHalfAttachRate: explicitDcTotal?.firstHalfAttachRate || dcAvgFirstHalfRate,
+      firstHalfTarget: explicitDcTotal?.firstHalfTarget || dcAvgFirstHalfTarget,
+      progressToGoal: explicitDcTotal ? explicitDcTotal.progressToGoal : dcProgress,
+      isTotalRow: true
+    };
 
-  const primaryTotalRow = selectedRegion === "Washington, DC Area + Baltimore" ? computedTotalRow : (totals[0] || computedTotalRow);
+    const baltimoreTotalRow: MonthlyRow = {
+      id: explicitBalTotal?.id || `baltimore-total-${Date.now()}`,
+      agentOffice: "Baltimore total",
+      region: "Washington, DC Area + Baltimore",
+      totalFundedOPLoans: explicitBalTotal ? explicitBalTotal.totalFundedOPLoans : balFunded,
+      totalBuysideDeals: explicitBalTotal ? explicitBalTotal.totalBuysideDeals : balBuyside,
+      attachRate: explicitBalTotal ? explicitBalTotal.attachRate : balAttachRate,
+      firstHalfAttachRate: explicitBalTotal?.firstHalfAttachRate || balAvgFirstHalfRate,
+      firstHalfTarget: explicitBalTotal?.firstHalfTarget || balAvgFirstHalfTarget,
+      progressToGoal: explicitBalTotal ? explicitBalTotal.progressToGoal : balProgress,
+      isTotalRow: true
+    };
+
+    totals = [dcTotalRow, baltimoreTotalRow];
+    primaryTotalRow = computedTotalRow;
+  } else {
+    totals = hasExplicitTotalRow ? explicitTotals : [computedTotalRow];
+    primaryTotalRow = totals[0];
+  }
 
   // Finalized currentRegionMonthlyRows list which ensures standard offices + totals
   const currentRegionMonthlyRows = [
@@ -659,18 +614,6 @@ export default function App() {
                 <ChevronRight className="w-3.5 h-3.5 rotate-90" />
               </div>
             </div>
-
-            {!isUsingPreloaded && (
-              <button
-                id="reset-preloaded-data-btn"
-                onClick={handleResetData}
-                className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold py-2 px-3 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 text-white transition-all cursor-pointer"
-                title="Reset to preloaded Washington DC sample dataset"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset to Sample</span>
-              </button>
-            )}
 
             {/* Google User Auth Profile Widget */}
             {currentUser && (
@@ -923,14 +866,8 @@ export default function App() {
                 <AlertCircle className="w-10 h-10 text-gray-300 mb-2" />
                 <h4 className="text-sm font-semibold text-gray-800">No regional rows found</h4>
                 <p className="text-xs text-gray-500 mt-1 max-w-sm">
-                  The selected region does not contain any records. Please load preloaded sample data or configure columns mapping correctly in the upload bar.
+                  The selected region does not contain any records. Please configure columns mapping correctly in the upload bar.
                 </p>
-                <button
-                  onClick={handleResetData}
-                  className="mt-4 px-4 py-2 text-xs font-medium text-white bg-[#2D5A4E] hover:bg-[#1C3A32] rounded-lg cursor-pointer"
-                >
-                  Reset to Initial Dataset (0's)
-                </button>
               </div>
             ) : (
               <EditableTable 
