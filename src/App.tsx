@@ -69,8 +69,8 @@ export default function App() {
   );
 
   // Status indicators for file load
-  const [monthlyFileName, setMonthlyFileName] = useState<string>("Preloaded April 2026 Sample Data");
-  const [ytdFileName, setYtdFileName] = useState<string>("Preloaded YTD Performance & Goals Data");
+  const [monthlyFileName, setMonthlyFileName] = useState<string>("Initial Empty April 2026 Dataset (0's)");
+  const [ytdFileName, setYtdFileName] = useState<string>("Initial Empty YTD Dataset (0's)");
   const [isUsingPreloaded, setIsUsingPreloaded] = useState<boolean>(true);
 
   // Active configurations
@@ -307,12 +307,12 @@ export default function App() {
 
   const handleResetData = () => {
     setIsUsingPreloaded(true);
-    setMonthlyFileName("Preloaded April 2026 Sample Data");
-    setYtdFileName("Preloaded YTD Performance & Goals Data");
+    setMonthlyFileName("Initial Empty April 2026 Dataset (0's)");
+    setYtdFileName("Initial Empty YTD Dataset (0's)");
     setSelectedRegion(DEFAULT_REGION);
     setHistory([]); // reset history on data reset
     loadPreloadedData(DEFAULT_REGION);
-    triggerToast("Reset back to beautiful preloaded sample data!");
+    triggerToast("Reset back to initial empty dataset (0's)!");
   };
 
   // FILTER LOGIC & DERIVATION of KPIs
@@ -804,7 +804,7 @@ export default function App() {
                   onClick={handleResetData}
                   className="mt-4 px-4 py-2 text-xs font-medium text-white bg-[#2D5A4E] hover:bg-[#1C3A32] rounded-lg cursor-pointer"
                 >
-                  Load Preloaded Washington Sample Dataset
+                  Load Initial Empty Dataset (0's)
                 </button>
               </div>
             ) : (
