@@ -16,10 +16,10 @@ import {
 
 interface UploadWizardProps {
   onDataParsed: (payload: {
-    monthlyRows: MonthlyRow[];
-    ytdRows: YTDRow[];
-    monthlyFileName: string;
-    ytdFileName: string;
+    monthlyRows?: MonthlyRow[];
+    ytdRows?: YTDRow[];
+    monthlyFileName?: string;
+    ytdFileName?: string;
   }) => void;
   currentMonthlyFileName?: string;
   currentYtdFileName?: string;
