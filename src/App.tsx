@@ -100,20 +100,27 @@ export default function App() {
 
   // Callback triggered when files are processed by UploadWizard
   const handleDataParsed = (payload: {
-    monthlyRows: MonthlyRow[];
-    ytdRows: YTDRow[];
-    monthlyFileName: string;
-    ytdFileName: string;
+    monthlyRows?: MonthlyRow[];
+    ytdRows?: YTDRow[];
+    monthlyFileName?: string;
+    ytdFileName?: string;
   }) => {
-    setMonthlyRows(payload.monthlyRows);
-    setYtdRows(payload.ytdRows);
-    setMonthlyFileName(payload.monthlyFileName);
-    setYtdFileName(payload.ytdFileName);
     setIsUsingPreloaded(false);
+
+    let nextMonthly = monthlyRows;
+    if (payload.monthlyRows) {
+      nextMonthly = payload.monthlyRows;
+      setMonthlyRows(payload.monthlyRows);
+      if (payload.monthlyFileName) setMonthlyFileName(payload.monthlyFileName);
+    }
+    if (payload.ytdRows) {
+      setYtdRows(payload.ytdRows);
+      if (payload.ytdFileName) setYtdFileName(payload.ytdFileName);
+    }
 
     // Dynamic region selection: compile unique regions present in the uploaded monthly rows
     const uniqueUploadedRegions = Array.from(
-      new Set(payload.monthlyRows.map(r => r.region).filter(Boolean))
+      new Set(nextMonthly.map(r => r.region).filter(Boolean))
     ).sort();
 
     if (uniqueUploadedRegions.length > 0) {
@@ -130,7 +137,7 @@ export default function App() {
     }
     
     setHistory([]); // clear history on fresh import
-    triggerToast("Datasets uploaded and mapped successfully!");
+    triggerToast("Data imported successfully!");
   };
 
   // Undo state history stack
@@ -318,18 +325,22 @@ export default function App() {
   // FILTER LOGIC & DERIVATION of KPIs
   // Dynamic merge of monthly and YTD rows
   const mergedMonthlyRows = monthlyRows.map(mRow => {
-    // Find matching YTD row by agentOffice and region (case insensitive)
-    const match = ytdRows.find(y => 
-      y.region.toLowerCase().trim() === mRow.region.toLowerCase().trim() &&
-      y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
-    );
-    if (match) {
-      return {
-        ...mRow,
-        firstHalfAttachRate: match.totalMortgageAttachRate,
-        firstHalfTarget: match.totalRampedMortgageAttachRateGoal,
-        progressToGoal: match.progressToRampedMortgageAttachRateGoal
-      };
+    // Only merge YTD rows if a YTD file was actually uploaded
+    const isYtdUploaded = ytdFileName !== "Upload your data";
+    if (isYtdUploaded) {
+      // Find matching YTD row by agentOffice and region (case insensitive)
+      const match = ytdRows.find(y => 
+        y.region.toLowerCase().trim() === mRow.region.toLowerCase().trim() &&
+        y.agentOffice.toLowerCase().trim() === mRow.agentOffice.toLowerCase().trim()
+      );
+      if (match) {
+        return {
+          ...mRow,
+          firstHalfAttachRate: match.totalMortgageAttachRate,
+          firstHalfTarget: match.totalRampedMortgageAttachRateGoal,
+          progressToGoal: match.progressToRampedMortgageAttachRateGoal
+        };
+      }
     }
     return mRow;
   });
