@@ -505,15 +505,12 @@ export default function App() {
   totals = totals.map(t => {
     const mgMatch = findMarketGoalMatch(t.agentOffice, marketGoalRows);
     if (mgMatch) {
+      const goal = mgMatch.totalRampedMortgageAttachRateGoal;
+      const progress = parseFloat((t.attachRate - goal).toFixed(1));
       return {
         ...t,
-        firstHalfTarget: mgMatch.totalRampedMortgageAttachRateGoal,
-        progressToGoal: mgMatch.progressToRampedMortgageAttachRateGoal,
-        attachRate: mgMatch.totalMortgageAttachRate !== 0 ? mgMatch.totalMortgageAttachRate : t.attachRate,
-        firstHalfAttachRate: mgMatch.totalMortgageAttachRate !== 0 ? mgMatch.totalMortgageAttachRate : t.firstHalfAttachRate,
-        totalFundedOPLoans: mgMatch.totalMortgageTransactions !== undefined && mgMatch.totalMortgageTransactions !== 0
-          ? mgMatch.totalMortgageTransactions
-          : t.totalFundedOPLoans
+        firstHalfTarget: goal,
+        progressToGoal: progress
       };
     }
     return t;
@@ -521,15 +518,12 @@ export default function App() {
 
   const matchedPrimaryMg = findMarketGoalMatch(`${selectedRegion} Total`, marketGoalRows) || findMarketGoalMatch(selectedRegion, marketGoalRows);
   if (matchedPrimaryMg) {
+    const goal = matchedPrimaryMg.totalRampedMortgageAttachRateGoal;
+    const progress = parseFloat((primaryTotalRow.attachRate - goal).toFixed(1));
     primaryTotalRow = {
       ...primaryTotalRow,
-      firstHalfTarget: matchedPrimaryMg.totalRampedMortgageAttachRateGoal,
-      progressToGoal: matchedPrimaryMg.progressToRampedMortgageAttachRateGoal,
-      attachRate: matchedPrimaryMg.totalMortgageAttachRate !== 0 ? matchedPrimaryMg.totalMortgageAttachRate : primaryTotalRow.attachRate,
-      firstHalfAttachRate: matchedPrimaryMg.totalMortgageAttachRate !== 0 ? matchedPrimaryMg.totalMortgageAttachRate : primaryTotalRow.firstHalfAttachRate,
-      totalFundedOPLoans: matchedPrimaryMg.totalMortgageTransactions !== undefined && matchedPrimaryMg.totalMortgageTransactions !== 0
-        ? matchedPrimaryMg.totalMortgageTransactions
-        : primaryTotalRow.totalFundedOPLoans
+      firstHalfTarget: goal,
+      progressToGoal: progress
     };
   } else if (totals.length === 1) {
     // If there is only one total row (which represents the region total), align primaryTotalRow to it
