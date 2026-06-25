@@ -119,7 +119,7 @@ export function parsePercentage(val: any): number {
   
   // If no percent sign and the raw value is a small decimal, e.g. 0.057, it's a decimal format
   // We check if value is > 0 and <= 1.0 and did not have a "%".
-  if (!hasPercentSign && parsed > 0 && parsed <= 1.0) {
+  if (!hasPercentSign && Math.abs(parsed) > 0 && Math.abs(parsed) <= 1.0) {
     return parseFloat((parsed * 100).toFixed(2));
   }
   
@@ -159,6 +159,11 @@ export function getSimpleOfficeName(officeName: string, regionName: string): str
   if (!officeName) return "N/A";
   let name = officeName.trim();
 
+  // If it's a total row, keep it as is
+  if (name.toLowerCase().includes("total")) {
+    return name;
+  }
+
   // Split using common delimiters: " - ", " – ", " — ", " | ", or even simple "-" with spaces
   const parts = name.split(/\s*[-–—|/]\s*/).map(p => p.trim()).filter(Boolean);
 
@@ -181,41 +186,24 @@ export function getSimpleOfficeName(officeName: string, regionName: string): str
       return /^[A-Za-z]{2,3}$/.test(str);
     };
 
-    const isRegionOrMarket = (str: string) => {
-      const s = str.toLowerCase();
-      const r = (regionName || "").toLowerCase();
-      if (!r) return false;
-      // If the part matches the region or is a major substring/word of the region, exclude it
-      if (s === r) return true;
-      if (r.includes(s) && s.length > 3) return true;
-      if (s.includes("region") || s.includes("market") || s.includes("total") || s.includes("area") || s.includes("district")) return true;
-      return false;
-    };
-
-    // Filter out state codes, addresses, and regions/markets
-    const candidates = parts.filter(p => !isStateCode(p) && !isAddress(p) && !isRegionOrMarket(p));
+    // Filter out state codes and addresses
+    const candidates = parts.filter(p => !isStateCode(p) && !isAddress(p));
 
     if (candidates.length > 0) {
-      return candidates[0]; // Take the first candidate that survived the filters
-    }
+      const cleanCandidates = candidates.filter(p => {
+        const s = p.toLowerCase();
+        return !s.includes("total") && s !== "market" && s !== "region";
+      });
 
-    // Fallbacks based on position if everything got filtered or nothing matched
-    if (parts.length === 4) {
-      // Region - Market - Office - Address
-      return parts[2];
-    } else if (parts.length === 3) {
-      // Could be Region - Office - Address or Region - Market - Office
-      if (isAddress(parts[2])) {
-        return parts[1];
+      if (cleanCandidates.length > 0) {
+        // If we have candidates, e.g. ["Houston", "The Woodlands"], we join them with " - ".
+        // Limit to max 2 candidates to prevent extremely long names (e.g. taking region + office)
+        if (cleanCandidates.length > 2) {
+          return `${cleanCandidates[0]} - ${cleanCandidates[1]}`;
+        }
+        return cleanCandidates.join(" - ");
       }
-      return parts[2];
-    } else if (parts.length === 2) {
-      // Region - Office or Market - Office
-      return parts[1];
     }
-
-    const nonStateParts = parts.filter(p => !isStateCode(p));
-    if (nonStateParts.length > 0) return nonStateParts[0];
   }
 
   // Fallback: remove parentheses from original name
@@ -262,12 +250,12 @@ export function mapMonthlyRows(
     if (mapping.progressToGoal && row[mapping.progressToGoal] !== undefined && row[mapping.progressToGoal] !== "") {
       progressToGoal = parseNumber(row[mapping.progressToGoal]);
     } else {
-      progressToGoal = parseFloat((firstHalfRate - firstHalfTarget).toFixed(1));
+      progressToGoal = parseFloat((firstHalfRate - firstHalfTarget).toFixed(2));
     }
 
     return {
       id: `uploaded-m-${idx}-${Date.now()}`,
-      agentOffice: rawOffice,
+      agentOffice: getSimpleOfficeName(rawOffice, normalizedRegion),
       region: normalizedRegion,
       totalFundedOPLoans: totalFunded,
       totalBuysideDeals: totalBuyside,
@@ -313,7 +301,7 @@ export function mapYTDRows(
 
     return {
       id: `uploaded-ytd-${idx}-${Date.now()}`,
-      agentOffice: rawOffice,
+      agentOffice: getSimpleOfficeName(rawOffice, normalizedRegion),
       region: normalizedRegion,
       totalMortgageAttachRate,
       totalRampedMortgageAttachRateGoal,

@@ -2,15 +2,7 @@ import React, { useRef, useState } from "react";
 import { Globe, Clipboard, Download } from "lucide-react";
 import { logoBase64 } from "../utils/logo";
 import { toJpeg } from "html-to-image";
-
-interface MonthlyRow {
-  agentOffice: string;
-  totalFundedOPLoans: number;
-  totalBuysideDeals: number;
-  attachRate: number;
-  progressToGoal: number;
-  isTotalRow?: boolean;
-}
+import { MonthlyRow } from "../types";
 
 interface EmailPreviewProps {
   selectedRegion: string;
@@ -20,6 +12,8 @@ interface EmailPreviewProps {
   thankYouText: string;
   regionalAttachRate: string;
   regionalTarget: string;
+  regionalFirstHalfAttachRate: string;
+  regionalAttachDiff: string;
   progressToGoal: string;
   progressToGoalVal: number;
   progressText: string;
@@ -41,6 +35,8 @@ export default function EmailPreview({
   thankYouText,
   regionalAttachRate,
   regionalTarget,
+  regionalFirstHalfAttachRate,
+  regionalAttachDiff,
   progressToGoal,
   progressToGoalVal,
   progressText,
@@ -184,30 +180,26 @@ export default function EmailPreview({
               {/* KPI 1 */}
               <div className="bg-[#2D5A4E] text-white rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
                 <span className="text-[12px] font-bold text-[#EDF4FB]/60 leading-tight tracking-wider uppercase">
-                  REGIONAL ATTACH
+                  Attach Rate
                 </span>
-                <span className="font-serif text-3xl font-bold my-1.5 leading-none">
+                <span className="font-serif text-3xl font-bold my-1 leading-none">
                   {regionalAttachRate}
                 </span>
-                <span className="text-[13px] text-[#EDF4FB]/70 leading-tight">
-                  Target {regionalTarget}
+                <span className="text-[13px] text-[#EDF4FB]/80 leading-tight block overflow-hidden text-ellipsis whitespace-nowrap px-1">
+                  Month of {reportingPeriod}
                 </span>
               </div>
 
               {/* KPI 2 */}
               <div className="bg-[#EDF4FB] border border-[#C8DCF0] text-gray-800 rounded-xl p-5 text-center flex flex-col justify-between h-[160px] shadow-sm">
                 <span className="text-[12px] font-bold text-[#2D5A4E] leading-tight font-sans tracking-wider uppercase">
-                  1H GOAL PROGRESS
+                  TOTAL 1H ATTACH
                 </span>
-                <span
-                  className={`font-serif text-3xl font-bold my-1.5 leading-none ${
-                    progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"
-                  }`}
-                >
+                <span className="font-serif text-3xl font-bold my-1.5 leading-none text-[#2D5A4E]">
+                  {regionalFirstHalfAttachRate}
+                </span>
+                <span className="text-[13px] text-gray-400 leading-tight block overflow-hidden text-ellipsis whitespace-nowrap px-1">
                   {progressToGoal}
-                </span>
-                <span className="text-[13px] text-gray-400 leading-tight">
-                  {progressText}
                 </span>
               </div>
 
@@ -219,7 +211,7 @@ export default function EmailPreview({
                 <span className="font-serif text-3xl font-bold my-1.5 leading-none text-[#1C3A32]">
                   {fundedLoans}
                 </span>
-                <span className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="text-[13px] text-gray-400 leading-tight block overflow-hidden text-ellipsis whitespace-nowrap px-1">
                   {fundedSublabel}
                 </span>
               </div>
@@ -233,7 +225,7 @@ export default function EmailPreview({
                   {topOfficeRate}
                 </span>
                 <span
-                  className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
+                  className="text-[13px] text-gray-400 leading-tight block overflow-hidden text-ellipsis whitespace-nowrap px-1"
                   title={topOfficeName}
                 >
                   {topOfficeName}
@@ -249,7 +241,7 @@ export default function EmailPreview({
                   {mostImprovedDiff}
                 </span>
                 <span
-                  className="text-[13px] text-gray-400 leading-tight overflow-hidden text-ellipsis whitespace-nowrap"
+                  className="text-[13px] text-gray-400 leading-tight block overflow-hidden text-ellipsis whitespace-nowrap px-1"
                   title={mostImprovedName}
                 >
                   {mostImprovedName}
@@ -271,6 +263,8 @@ export default function EmailPreview({
                       <th className="p-3.5 text-center">Funded</th>
                       <th className="p-3.5 text-center">Deals</th>
                       <th className="p-3.5 text-center">Attach</th>
+                      <th className="p-3.5 text-center">1H Rate</th>
+                      <th className="p-3.5 text-center">1H Target</th>
                       <th className="p-3.5 text-center font-bold">Progress (pp)</th>
                     </tr>
                   </thead>
@@ -295,15 +289,25 @@ export default function EmailPreview({
                             {row.agentOffice}
                           </td>
                           <td className="p-3.5 text-center text-gray-800">
-                            {isZero ? "-" : row.totalFundedOPLoans}
+                            {isZero ? <span className="text-gray-300">0</span> : row.totalFundedOPLoans}
                           </td>
                           <td className="p-3.5 text-center text-gray-800">
-                            {row.totalBuysideDeals}
+                            {row.totalBuysideDeals === 0 ? <span className="text-gray-300">0</span> : row.totalBuysideDeals}
                           </td>
                           <td className="p-3.5 text-center text-gray-800">
                             {row.attachRate === 0
-                              ? "-"
-                              : `${row.attachRate.toFixed(1)}%`}
+                              ? <span className="text-gray-300">0%</span>
+                              : `${row.attachRate.toFixed(2)}%`}
+                          </td>
+                          <td className="p-3.5 text-center text-gray-800">
+                            {row.firstHalfAttachRate === 0
+                              ? <span className="text-gray-300">0%</span>
+                              : `${row.firstHalfAttachRate.toFixed(2)}%`}
+                          </td>
+                          <td className="p-3.5 text-center text-gray-800">
+                            {row.firstHalfTarget === 0
+                              ? <span className="text-gray-300">0%</span>
+                              : `${row.firstHalfTarget.toFixed(2)}%`}
                           </td>
                           <td
                             className={`p-3.5 text-center font-bold font-sans ${
@@ -315,8 +319,8 @@ export default function EmailPreview({
                             }`}
                           >
                             {row.progressToGoal === 0
-                              ? "0.0"
-                              : `${row.progressToGoal > 0 ? "+" : ""}${row.progressToGoal.toFixed(1)}`}
+                              ? "0.00"
+                              : `${row.progressToGoal > 0 ? "+" : ""}${row.progressToGoal.toFixed(2)}`}
                           </td>
                         </tr>
                       );

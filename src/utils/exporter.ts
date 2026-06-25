@@ -13,6 +13,7 @@ interface ExporterParams {
     regionalAttachRate: string;
     regionalAttachDiff: string;
     regionalTarget: string;
+    regionalFirstHalfAttachRate: string;
     progressToGoal: string;
     progressText: string;
     isProgressPositive: boolean;
@@ -66,8 +67,8 @@ export function generateEmailHTML({
     const isProgPos = row.progressToGoal > 0;
     const progressColor = isProgZero ? "#cccccc" : (isProgPos ? "#1A7A3C" : "#C0392B");
     const progressText = isProgZero 
-      ? "0.0" 
-      : `${isProgPos ? "+" : ""}${row.progressToGoal.toFixed(1)}`;
+      ? "0.00" 
+      : `${isProgPos ? "+" : ""}${row.progressToGoal.toFixed(2)}`;
 
     return `
       <tr style="background-color: ${bg}; ${isTotal ? 'border-top: 1px solid #a8cfc2;' : 'border-bottom: 0.5px solid #dce9f5;'}">
@@ -102,7 +103,7 @@ export function generateEmailHTML({
               <img src="${logoUrl}" height="60" alt="OriginPoint Logo" style="height:60px; width:auto; border:none; display:block; margin-bottom:16px; outline:none; text-decoration:none;" />
               <p style="margin: 0 0 6px 0; font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.6); font-family: Arial, sans-serif;">MORTGAGE ATTACH RATE REPORT</p>
               <h1 style="margin: 0 0 8px 0; font-family: Georgia, serif; font-size: 40px; font-weight: normal; color: #FFFFFF; line-height: 1.2;">${regionName}</h1>
-              <p style="margin: 0; font-size: 18px; color: rgba(255,255,255,0.7); font-family: Arial, sans-serif; line-height: 1.4;">\${reportingPeriod}\${tagline ? ' &middot; ' + tagline : ''}</p>
+              <p style="margin: 0; font-size: 18px; color: rgba(255,255,255,0.7); font-family: Arial, sans-serif; line-height: 1.4;">${reportingPeriod}${tagline ? ' &middot; ' + tagline : ''}</p>
             </td>
           </tr>
         </table>
@@ -120,26 +121,19 @@ export function generateEmailHTML({
                 <tr>
                   <!-- Card 1: Regional Attach Rate (Dark green theme) -->
                   <td width="19%" valign="top" style="background-color:#2D5A4E; border-radius:10px; padding:20px 14px; text-align:center;">
-                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.6); font-family: Arial, sans-serif; line-height: 1.2; min-height: 30px;">REGIONAL<br/>ATTACH RATE</p>
+                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: rgba(255,255,255,0.6); font-family: Arial, sans-serif; line-height: 1.2; min-height: 30px;">ATTACH RATE</p>
                     <p style="margin: 0 0 6px 0; font-family: Georgia, serif; font-size: 32px; font-weight: bold; color: #FFFFFF; line-height: 1;">${kpis.regionalAttachRate}</p>
-                    <p style="margin: 0 0 8px 0; font-size: 13px; color: rgba(255,255,255,0.55); font-family: Arial, sans-serif; line-height: 1.1;">Target ${kpis.regionalTarget}</p>
-                    <table align="center" border="0" cellpadding="0" cellspacing="0" style="background-color: rgba(255,255,255,0.18); border-radius: 12px;">
-                      <tr>
-                        <td style="padding: 4px 12px; font-size: 12px; font-weight: bold; color: #FFFFFF; font-family: Arial, sans-serif;">
-                          ${kpis.regionalAttachDiff}
-                        </td>
-                      </tr>
-                    </table>
+                    <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); font-family: Arial, sans-serif; line-height: 1.1;">Month of ${reportingPeriod}</p>
                   </td>
                   
                   <!-- Cell Divider spacer -->
                   <td width="1.2%">&nbsp;</td>
 
-                  <!-- Card 2: 1H Goal Progress -->
+                  <!-- Card 2: Total 1H Attach -->
                   <td width="19%" valign="top" style="background-color:#EDF4FB; border: 1px solid #C8DCF0; border-radius:10px; padding:20px 14px; text-align:center;">
-                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: #2D5A4E; font-family: Arial, sans-serif; line-height: 1.2; min-height: 30px;">1H GOAL<br/>PROGRESS (pp)</p>
-                    <p style="margin: 0 0 6px 0; font-family: Georgia, serif; font-size: 32px; font-weight: bold; color: ${kpis.isProgressPositive ? '#1A7A3C' : '#C0392B'}; line-height: 1;">${kpis.progressToGoal}</p>
-                    <p style="margin: 0; font-size: 13px; color:#999999; font-family: Arial, sans-serif; line-height: 1.1;">${kpis.progressText}</p>
+                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; color: #2D5A4E; font-family: Arial, sans-serif; line-height: 1.2; min-height: 30px;">TOTAL 1H<br/>ATTACH</p>
+                    <p style="margin: 0 0 6px 0; font-family: Georgia, serif; font-size: 32px; font-weight: bold; color: #2D5A4E; line-height: 1;">${kpis.regionalFirstHalfAttachRate}</p>
+                    <p style="margin: 0; font-size: 13px; color: #999999; font-family: Arial, sans-serif; line-height: 1.1;">${kpis.progressToGoal}</p>
                   </td>
 
                   <td width="1.2%">&nbsp;</td>

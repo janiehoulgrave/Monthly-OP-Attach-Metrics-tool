@@ -131,7 +131,7 @@ export default function EditableTable({
 
       if (colName === "firstHalfAttachRate" || colName === "firstHalfTarget") {
         updatedRow.progressToGoal = parseFloat(
-          (updatedRow.firstHalfAttachRate - updatedRow.firstHalfTarget).toFixed(1)
+          (updatedRow.firstHalfAttachRate - updatedRow.firstHalfTarget).toFixed(2)
         );
       }
     }
@@ -188,10 +188,10 @@ export default function EditableTable({
 
   const formatProgress = (val: any) => {
     const num = Number(val);
-    if (num === 0) return <span className="text-[#cccccc]">0.0 pp</span>;
+    if (num === 0) return <span className="text-[#cccccc]">0.00 pp</span>;
     const sign = num > 0 ? "+" : "";
     const color = num > 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"; // Forest Green or Dark Red
-    return <span className={`font-semibold ${color}`}>{sign}{num.toFixed(1)}</span>;
+    return <span className={`font-semibold ${color}`}>{sign}{num.toFixed(2)}</span>;
   };
 
   return (

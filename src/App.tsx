@@ -403,7 +403,7 @@ export default function App() {
     ? parseFloat((validTargets.reduce((sum, v) => sum + v, 0) / validTargets.length).toFixed(2))
     : 2.50; // fallback standard goal target
 
-  const progressToGoalValFromAttach = parseFloat((calculatedAttachRate - avgFirstHalfTarget).toFixed(1));
+  const progressToGoalValFromAttach = parseFloat((avgFirstHalfRate - avgFirstHalfTarget).toFixed(2));
 
   const computedTotalRow: MonthlyRow = {
     id: `computed-total-${selectedRegion.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Date.now()}`,
@@ -447,7 +447,7 @@ export default function App() {
       ? parseFloat((dcValidTargets.reduce((sum, v) => sum + v, 0) / dcValidTargets.length).toFixed(2))
       : 2.50;
       
-    const dcProgress = parseFloat((dcAttachRate - dcAvgFirstHalfTarget).toFixed(1));
+    const dcProgress = parseFloat((dcAvgFirstHalfRate - dcAvgFirstHalfTarget).toFixed(2));
 
     const balBuyside = baltimoreOffices.reduce((sum, r) => sum + r.totalBuysideDeals, 0);
     const balFunded = baltimoreOffices.reduce((sum, r) => sum + r.totalFundedOPLoans, 0);
@@ -463,7 +463,7 @@ export default function App() {
       ? parseFloat((balValidTargets.reduce((sum, v) => sum + v, 0) / balValidTargets.length).toFixed(2))
       : 2.50;
       
-    const balProgress = parseFloat((balAttachRate - balAvgFirstHalfTarget).toFixed(1));
+    const balProgress = parseFloat((balAvgFirstHalfRate - balAvgFirstHalfTarget).toFixed(2));
 
     const explicitDcTotal = explicitTotals.find(r => r.agentOffice.toLowerCase().includes("dc") || r.agentOffice.toLowerCase().includes("washington") || r.agentOffice.toLowerCase().includes("capitol") || r.agentOffice.toLowerCase().includes("georgetown"));
     const explicitBalTotal = explicitTotals.find(r => r.agentOffice.toLowerCase().includes("baltimore"));
@@ -506,7 +506,7 @@ export default function App() {
     const mgMatch = findMarketGoalMatch(t.agentOffice, marketGoalRows);
     if (mgMatch) {
       const goal = mgMatch.totalRampedMortgageAttachRateGoal;
-      const progress = parseFloat((t.attachRate - goal).toFixed(1));
+      const progress = parseFloat((t.firstHalfAttachRate - goal).toFixed(2));
       return {
         ...t,
         firstHalfTarget: goal,
@@ -519,7 +519,7 @@ export default function App() {
   const matchedPrimaryMg = findMarketGoalMatch(`${selectedRegion} Total`, marketGoalRows) || findMarketGoalMatch(selectedRegion, marketGoalRows);
   if (matchedPrimaryMg) {
     const goal = matchedPrimaryMg.totalRampedMortgageAttachRateGoal;
-    const progress = parseFloat((primaryTotalRow.attachRate - goal).toFixed(1));
+    const progress = parseFloat((primaryTotalRow.firstHalfAttachRate - goal).toFixed(2));
     primaryTotalRow = {
       ...primaryTotalRow,
       firstHalfTarget: goal,
@@ -535,15 +535,16 @@ export default function App() {
     const primaryAttachRate = sumBuysideTotals > 0 ? parseFloat(((sumFundedTotals / sumBuysideTotals) * 100).toFixed(2)) : primaryTotalRow.attachRate;
     
     // Average target and progress from totals
+    const avgFirstHalfRateFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.firstHalfAttachRate, 0) / totals.length).toFixed(2));
     const avgTargetFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.firstHalfTarget, 0) / totals.length).toFixed(2));
-    const avgProgressFromTotals = parseFloat((primaryAttachRate - avgTargetFromTotals).toFixed(1));
+    const avgProgressFromTotals = parseFloat((avgFirstHalfRateFromTotals - avgTargetFromTotals).toFixed(2));
 
     primaryTotalRow = {
       ...primaryTotalRow,
       totalFundedOPLoans: sumFundedTotals,
       totalBuysideDeals: sumBuysideTotals,
       attachRate: primaryAttachRate,
-      firstHalfAttachRate: primaryAttachRate,
+      firstHalfAttachRate: avgFirstHalfRateFromTotals,
       firstHalfTarget: avgTargetFromTotals,
       progressToGoal: avgProgressFromTotals
     };
@@ -558,13 +559,14 @@ export default function App() {
   // 1. Regional Attach Rate
   const regionalAttachRate = primaryTotalRow ? `${primaryTotalRow.attachRate.toFixed(2)}%` : "0.00%";
   const regionalTarget = primaryTotalRow ? `${primaryTotalRow.firstHalfTarget.toFixed(2)}%` : "2.50%";
+  const regionalFirstHalfAttachRate = primaryTotalRow ? `${primaryTotalRow.firstHalfAttachRate.toFixed(2)}%` : "0.00%";
   
   const rawDiff = primaryTotalRow ? (primaryTotalRow.attachRate - primaryTotalRow.firstHalfTarget) : 0;
   const regionalAttachDiff = `${rawDiff >= 0 ? "+" : ""}${rawDiff.toFixed(2)} pp`;
 
   // 2. Progress to 1H Goal (signed pp value)
   const progressToGoalVal = primaryTotalRow ? primaryTotalRow.progressToGoal : 0;
-  const progressToGoal = `${progressToGoalVal >= 0 ? "+" : ""}${progressToGoalVal.toFixed(1)} pp`;
+  const progressToGoal = `${progressToGoalVal >= 0 ? "+" : ""}${progressToGoalVal.toFixed(2)} pp`;
   const isProgressPositive = progressToGoalVal >= 0;
   const progressText = progressToGoalVal >= 0 ? "Ahead of target" : "Behind target";
 
@@ -593,8 +595,8 @@ export default function App() {
     : null;
     
   const mostImprovedDiff = mostImprovedOffice 
-    ? `${mostImprovedOffice.progressToGoal >= 0 ? "+" : ""}${mostImprovedOffice.progressToGoal.toFixed(1)} pp` 
-    : "0.0 pp";
+    ? `${mostImprovedOffice.progressToGoal >= 0 ? "+" : ""}${mostImprovedOffice.progressToGoal.toFixed(2)} pp` 
+    : "0.00 pp";
   const mostImprovedName = mostImprovedOffice ? getSimpleOfficeName(mostImprovedOffice.agentOffice, selectedRegion) : "N/A";
 
   // Target rate for trend chart drawing
@@ -614,6 +616,7 @@ export default function App() {
           regionalAttachRate,
           regionalAttachDiff,
           regionalTarget,
+          regionalFirstHalfAttachRate,
           progressToGoal,
           progressText,
           isProgressPositive,
@@ -832,6 +835,8 @@ export default function App() {
             thankYouText={thankYouText}
             regionalAttachRate={regionalAttachRate}
             regionalTarget={regionalTarget}
+            regionalFirstHalfAttachRate={regionalFirstHalfAttachRate}
+            regionalAttachDiff={regionalAttachDiff}
             progressToGoal={progressToGoal}
             progressToGoalVal={progressToGoalVal}
             progressText={progressText}
@@ -855,35 +860,33 @@ export default function App() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 
-                {/* 1. Regional Attach Rate */}
+                 {/* 1. Regional Attach Rate */}
                 <div className="bg-[#2D5A4E] text-white p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
                   <span className="text-[9px] font-bold tracking-widest text-[#EDF4FB]/60 uppercase leading-snug">
-                    Regional Attach Rate
+                    Attach Rate
                   </span>
                   <div className="my-2.5">
                     <span className="font-serif text-3xl font-bold leading-none">{regionalAttachRate}</span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-[#EDF4FB]/70 block leading-tight">vs. Target: {regionalTarget}</span>
-                    <div className="inline-block bg-white/15 text-[10px] font-medium px-2 py-0.5 rounded-full mt-1.5">
-                      {regionalAttachDiff}
-                    </div>
+                    <span className="text-[13px] text-[#EDF4FB]/85 block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1">Month of {reportingPeriod}</span>
                   </div>
                 </div>
 
-                {/* 2. Progress to 1H Goal */}
+                {/* 2. Total 1H Attach Rate */}
                 <div className="bg-[#EDF4FB] border border-[#C8DCF0] p-4.5 rounded-xl flex flex-col justify-between shadow-sm min-h-[140px] text-center">
                   <span className="text-[9px] font-bold tracking-widest text-[#2D5A4E]/80 uppercase leading-snug">
-                    1H Goal Progress (pp)
+                    Total 1H Attach
                   </span>
                   <div className="my-2.5">
-                    <span className={`font-serif text-3xl font-bold leading-none ${progressToGoalVal >= 0 ? "text-[#1A7A3C]" : "text-[#C0392B]"}`}>
-                      {progressToGoal}
+                    <span className="font-serif text-3xl font-bold leading-none text-[#2D5A4E]">
+                      {regionalFirstHalfAttachRate}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-[#999999] block leading-tight">{progressText}</span>
-                    <div className="invisible h-4 mt-2">spacer</div>
+                    <span className="text-[13px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1">
+                      {progressToGoal}
+                    </span>
                   </div>
                 </div>
 
@@ -898,10 +901,9 @@ export default function App() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={fundedSublabel}>
+                    <span className="text-[13px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={fundedSublabel}>
                       {fundedSublabel}
                     </span>
-                    <div className="invisible h-4 mt-2">spacer</div>
                   </div>
                 </div>
 
@@ -916,10 +918,9 @@ export default function App() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={topOfficeName}>
+                    <span className="text-[13px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={topOfficeName}>
                       {topOfficeName}
                     </span>
-                    <div className="invisible h-4 mt-2">spacer</div>
                   </div>
                 </div>
 
@@ -934,10 +935,9 @@ export default function App() {
                     </span>
                   </div>
                   <div>
-                    <span className="text-[11px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={mostImprovedName}>
+                    <span className="text-[13px] text-[#999999] block leading-tight overflow-hidden text-ellipsis whitespace-nowrap px-1" title={mostImprovedName}>
                       {mostImprovedName}
                     </span>
-                    <div className="invisible h-4 mt-2">spacer</div>
                   </div>
                 </div>
 
