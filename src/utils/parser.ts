@@ -154,6 +154,118 @@ export function normalizeRegionName(regionName: string): string {
   return regionName;
 }
 
+export function checkIsAddress(str: string): boolean {
+  const s = str.toLowerCase();
+  // Starts with numbers (house number) or contains suite/drive/street/road/way/lane/boulevard/pike
+  if (/^\d+/.test(s)) return true;
+  if (s.includes("street") || s.includes(" st ") || s.endsWith(" st") || s.endsWith(" st.")) return true;
+  if (s.includes("avenue") || s.includes(" ave") || s.endsWith(" ave.")) return true;
+  if (s.includes("road") || s.includes(" rd") || s.endsWith(" rd.")) return true;
+  if (s.includes("boulevard") || s.includes(" blvd") || s.endsWith(" blvd.")) return true;
+  if (s.includes("drive") || s.includes(" dr ") || s.endsWith(" dr") || s.endsWith(" dr.")) return true;
+  if (s.includes("pike") || s.includes("way") || s.includes("suite") || s.includes("court") || s.includes(" ct ") || s.endsWith(" ct")) return true;
+  return false;
+}
+
+export function getStreetName(addressStr: string): string {
+  if (!addressStr) return "";
+  let s = addressStr.trim();
+  // Remove leading numbers (house number) and any following whitespace
+  s = s.replace(/^\d+\s*/, "");
+  // Remove common suffixes (case insensitive, whole words or end of string)
+  const suffixes = [
+    /\s+ave(nue)?\.?$/i,
+    /\s+st(reet)?\.?$/i,
+    /\s+rd\.?$/i,
+    /\s+road\.?$/i,
+    /\s+blvd\.?$/i,
+    /\s+boulevard\.?$/i,
+    /\s+dr(ive)?\.?$/i,
+    /\s+way\.?$/i,
+    /\s+pl(ace)?\.?$/i,
+    /\s+ln\.?$/i,
+    /\s+lane\.?$/i,
+    /\s+ct\.?$/i,
+    /\s+court\.?$/i,
+    /\s+loop\.?$/i,
+    /\s+suite\s+\w+$/i
+  ];
+  for (const regex of suffixes) {
+    s = s.replace(regex, "");
+  }
+  return s.trim();
+}
+
+// Resolves a batch of raw office names to handle duplicates and apply extraction rules
+export function resolveOfficeNames(rawOfficeNames: string[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  
+  const parsedInfos = rawOfficeNames.map(rawName => {
+    const trimmed = rawName.trim();
+    if (!trimmed) {
+      return { rawName, baseOfficeName: "", streetName: "" };
+    }
+    
+    if (trimmed.toLowerCase().includes("total")) {
+      return { rawName, baseOfficeName: trimmed, streetName: "" };
+    }
+
+    // Split strictly by hyphens/dashes/bars, excluding slash (/)
+    const parts = trimmed.split(/\s*[-–—|]\s*/).map(p => p.trim()).filter(Boolean);
+
+    let baseOfficeName = trimmed;
+    let streetName = "";
+
+    // If there are at least 3 parts (State - Market/Subregion - Office - Address)
+    if (parts.length >= 3) {
+      baseOfficeName = parts[2];
+      if (parts[3]) {
+        streetName = getStreetName(parts[3]);
+      }
+    } else if (parts.length === 2) {
+      // If there are only 2 parts, e.g., "Market - Office" or "Office - Address"
+      if (checkIsAddress(parts[1])) {
+        baseOfficeName = parts[0];
+        streetName = getStreetName(parts[1]);
+      } else {
+        baseOfficeName = parts[1];
+      }
+    } else {
+      baseOfficeName = trimmed;
+    }
+
+    return { rawName, baseOfficeName, streetName };
+  });
+
+  const baseCounts: Record<string, number> = {};
+  parsedInfos.forEach(info => {
+    if (info.baseOfficeName && !info.baseOfficeName.toLowerCase().includes("total")) {
+      const lower = info.baseOfficeName.toLowerCase();
+      baseCounts[lower] = (baseCounts[lower] || 0) + 1;
+    }
+  });
+
+  parsedInfos.forEach(info => {
+    if (!info.baseOfficeName) {
+      result[info.rawName] = "";
+      return;
+    }
+    if (info.baseOfficeName.toLowerCase().includes("total")) {
+      result[info.rawName] = info.baseOfficeName;
+      return;
+    }
+
+    const lowerBase = info.baseOfficeName.toLowerCase();
+    if (baseCounts[lowerBase] > 1 && info.streetName) {
+      result[info.rawName] = `${info.baseOfficeName} - ${info.streetName}`;
+    } else {
+      result[info.rawName] = info.baseOfficeName;
+    }
+  });
+
+  return result;
+}
+
 // Cleans office name to remove regional references, parenthesized regions, or prefixes
 export function getSimpleOfficeName(officeName: string, regionName: string): string {
   if (!officeName) return "N/A";
@@ -164,46 +276,18 @@ export function getSimpleOfficeName(officeName: string, regionName: string): str
     return name;
   }
 
-  // Split using common delimiters: " - ", " – ", " — ", " | ", or even simple "-" with spaces
-  const parts = name.split(/\s*[-–—|/]\s*/).map(p => p.trim()).filter(Boolean);
+  // Split using common delimiters, excluding slash (/) to keep sub-regions together
+  const parts = name.split(/\s*[-–—|]\s*/).map(p => p.trim()).filter(Boolean);
 
-  if (parts.length > 1) {
-    const isAddress = (str: string) => {
-      const s = str.toLowerCase();
-      // Starts with numbers (house number) or contains suite/drive/street/road/way/lane/boulevard/pike
-      if (/^\d+/.test(s)) return true;
-      if (s.includes("street") || s.includes(" st ") || s.endsWith(" st") || s.endsWith(" st.")) return true;
-      if (s.includes("avenue") || s.includes(" ave") || s.endsWith(" ave.")) return true;
-      if (s.includes("road") || s.includes(" rd") || s.endsWith(" rd.")) return true;
-      if (s.includes("boulevard") || s.includes(" blvd") || s.endsWith(" blvd.")) return true;
-      if (s.includes("drive") || s.includes(" dr ") || s.endsWith(" dr") || s.endsWith(" dr.")) return true;
-      if (s.includes("pike") || s.includes("way") || s.includes("suite") || s.includes("court") || s.includes(" ct ") || s.endsWith(" ct")) return true;
-      return false;
-    };
+  if (parts.length >= 3) {
+    return parts[2];
+  }
 
-    const isStateCode = (str: string) => {
-      // 2 or 3 letters (e.g. MD, DC, VA, TX, CA, etc.)
-      return /^[A-Za-z]{2,3}$/.test(str);
-    };
-
-    // Filter out state codes and addresses
-    const candidates = parts.filter(p => !isStateCode(p) && !isAddress(p));
-
-    if (candidates.length > 0) {
-      const cleanCandidates = candidates.filter(p => {
-        const s = p.toLowerCase();
-        return !s.includes("total") && s !== "market" && s !== "region";
-      });
-
-      if (cleanCandidates.length > 0) {
-        // If we have candidates, e.g. ["Houston", "The Woodlands"], we join them with " - ".
-        // Limit to max 2 candidates to prevent extremely long names (e.g. taking region + office)
-        if (cleanCandidates.length > 2) {
-          return `${cleanCandidates[0]} - ${cleanCandidates[1]}`;
-        }
-        return cleanCandidates.join(" - ");
-      }
+  if (parts.length === 2) {
+    if (checkIsAddress(parts[1])) {
+      return parts[0];
     }
+    return parts[1];
   }
 
   // Fallback: remove parentheses from original name
@@ -219,6 +303,10 @@ export function mapMonthlyRows(
   jsonData: any[],
   mapping: MonthlyColumnMapping
 ): MonthlyRow[] {
+  // First, gather all raw office names to resolve duplicates
+  const rawOfficeNames = jsonData.map(row => cleanCellString(row[mapping.agentOffice] || ""));
+  const resolvedNames = resolveOfficeNames(rawOfficeNames);
+
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
@@ -255,7 +343,7 @@ export function mapMonthlyRows(
 
     return {
       id: `uploaded-m-${idx}-${Date.now()}`,
-      agentOffice: getSimpleOfficeName(rawOffice, normalizedRegion),
+      agentOffice: resolvedNames[rawOffice] || getSimpleOfficeName(rawOffice, normalizedRegion),
       region: normalizedRegion,
       totalFundedOPLoans: totalFunded,
       totalBuysideDeals: totalBuyside,
@@ -270,13 +358,17 @@ export function mapMonthlyRows(
     const officeLower = r.agentOffice.toLowerCase().trim();
     const regionLower = r.region.toLowerCase().trim();
     const rawRegionLower = (r.originalRegion || "").toLowerCase().trim();
+    const isReferralDirectors = officeLower.includes("referral directors") || 
+                                officeLower.includes("del mar - sandiego") ||
+                                (r.originalRegion && r.originalRegion.toLowerCase().includes("referral directors"));
     return (
       officeLower !== "" &&
       regionLower !== "" &&
       officeLower !== regionLower &&
       officeLower !== rawRegionLower &&
       !officeLower.includes("agent office") &&
-      !officeLower.includes("office name")
+      !officeLower.includes("office name") &&
+      !isReferralDirectors
     );
   });
 }
@@ -286,6 +378,10 @@ export function mapYTDRows(
   jsonData: any[],
   mapping: YTDColumnMapping
 ): YTDRow[] {
+  // First, gather all raw office names to resolve duplicates
+  const rawOfficeNames = jsonData.map(row => cleanCellString(row[mapping.agentOffice] || ""));
+  const resolvedNames = resolveOfficeNames(rawOfficeNames);
+
   return jsonData.map((row, idx) => {
     const rawOffice = cleanCellString(row[mapping.agentOffice] || "");
     const rawRegion = cleanCellString(row[mapping.region] || "");
@@ -301,7 +397,7 @@ export function mapYTDRows(
 
     return {
       id: `uploaded-ytd-${idx}-${Date.now()}`,
-      agentOffice: getSimpleOfficeName(rawOffice, normalizedRegion),
+      agentOffice: resolvedNames[rawOffice] || getSimpleOfficeName(rawOffice, normalizedRegion),
       region: normalizedRegion,
       totalMortgageAttachRate,
       totalRampedMortgageAttachRateGoal,
@@ -313,6 +409,9 @@ export function mapYTDRows(
     const officeLower = r.agentOffice.toLowerCase().trim();
     const regionLower = r.region.toLowerCase().trim();
     const rawRegionLower = (r.originalRegion || "").toLowerCase().trim();
+    const isReferralDirectors = officeLower.includes("referral directors") || 
+                                officeLower.includes("del mar - sandiego") ||
+                                (r.originalRegion && r.originalRegion.toLowerCase().includes("referral directors"));
     return (
       officeLower !== "" &&
       regionLower !== "" &&
@@ -320,6 +419,7 @@ export function mapYTDRows(
       officeLower !== rawRegionLower &&
       !officeLower.includes("agent office") &&
       !officeLower.includes("office name") &&
+      !isReferralDirectors &&
       !r.isGoalEmpty
     );
   }).map(({ isGoalEmpty, ...rest }) => rest as YTDRow);
