@@ -237,7 +237,7 @@ export default function EditableTable({
               <th className="py-2.5 px-3 font-medium text-center">Funded OP Loans</th>
               <th className="py-2.5 px-3 font-medium text-center">Buyside Deals</th>
               <th className="py-2.5 px-3 font-medium text-center">Attach Rate</th>
-              <th className="py-2.5 px-3 font-medium text-center">1H Rate</th>
+              <th className="py-2.5 px-3 font-medium text-center border-l border-white/20">1H Rate</th>
               <th className="py-2.5 px-3 font-medium text-center">1H Target</th>
               <th className="py-2.5 px-4 font-medium text-center">Progress (pp)</th>
               <th className="py-2.5 px-3 font-medium text-center w-[60px]">Delete</th>
@@ -333,7 +333,7 @@ export default function EditableTable({
                   </td>
 
                   {/* 1H Attach Rate */}
-                  <td className={tdClass}>
+                  <td className={`${tdClass} border-l ${isTotal ? 'border-[#a8cfc2]' : 'border-[#dce9f5]'}`}>
                     {isTotal ? (
                       <span className="font-semibold">{formatPercentage(row.firstHalfAttachRate)}</span>
                     ) : (

@@ -263,7 +263,7 @@ export default function EmailPreview({
                       <th className="p-3.5 text-center">Funded</th>
                       <th className="p-3.5 text-center">Deals</th>
                       <th className="p-3.5 text-center">Attach</th>
-                      <th className="p-3.5 text-center">1H Rate</th>
+                      <th className="p-3.5 text-center border-l border-white/20">1H Rate</th>
                       <th className="p-3.5 text-center">1H Target</th>
                       <th className="p-3.5 text-center font-bold">Progress (pp)</th>
                     </tr>
@@ -299,7 +299,7 @@ export default function EmailPreview({
                               ? <span className="text-gray-300">0%</span>
                               : `${row.attachRate.toFixed(2)}%`}
                           </td>
-                          <td className="p-3.5 text-center text-gray-800">
+                          <td className={`p-3.5 text-center text-gray-800 border-l ${isTotal ? 'border-[#a8cfc2]' : 'border-[#dce9f5]/75'}`}>
                             {row.firstHalfAttachRate === 0
                               ? <span className="text-gray-300">0%</span>
                               : `${row.firstHalfAttachRate.toFixed(2)}%`}

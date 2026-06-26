@@ -505,12 +505,11 @@ export default function App() {
   totals = totals.map(t => {
     const mgMatch = findMarketGoalMatch(t.agentOffice, marketGoalRows);
     if (mgMatch) {
-      const goal = mgMatch.totalRampedMortgageAttachRateGoal;
-      const progress = parseFloat((t.firstHalfAttachRate - goal).toFixed(2));
       return {
         ...t,
-        firstHalfTarget: goal,
-        progressToGoal: progress
+        firstHalfAttachRate: mgMatch.totalMortgageAttachRate !== undefined ? mgMatch.totalMortgageAttachRate : t.firstHalfAttachRate,
+        firstHalfTarget: mgMatch.totalRampedMortgageAttachRateGoal,
+        progressToGoal: mgMatch.progressToRampedMortgageAttachRateGoal
       };
     }
     return t;
@@ -518,12 +517,11 @@ export default function App() {
 
   const matchedPrimaryMg = findMarketGoalMatch(`${selectedRegion} Total`, marketGoalRows) || findMarketGoalMatch(selectedRegion, marketGoalRows);
   if (matchedPrimaryMg) {
-    const goal = matchedPrimaryMg.totalRampedMortgageAttachRateGoal;
-    const progress = parseFloat((primaryTotalRow.firstHalfAttachRate - goal).toFixed(2));
     primaryTotalRow = {
       ...primaryTotalRow,
-      firstHalfTarget: goal,
-      progressToGoal: progress
+      firstHalfAttachRate: matchedPrimaryMg.totalMortgageAttachRate !== undefined ? matchedPrimaryMg.totalMortgageAttachRate : primaryTotalRow.firstHalfAttachRate,
+      firstHalfTarget: matchedPrimaryMg.totalRampedMortgageAttachRateGoal,
+      progressToGoal: matchedPrimaryMg.progressToRampedMortgageAttachRateGoal
     };
   } else if (totals.length === 1) {
     // If there is only one total row (which represents the region total), align primaryTotalRow to it
@@ -537,7 +535,7 @@ export default function App() {
     // Average target and progress from totals
     const avgFirstHalfRateFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.firstHalfAttachRate, 0) / totals.length).toFixed(2));
     const avgTargetFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.firstHalfTarget, 0) / totals.length).toFixed(2));
-    const avgProgressFromTotals = parseFloat((avgFirstHalfRateFromTotals - avgTargetFromTotals).toFixed(2));
+    const avgProgressFromTotals = parseFloat((totals.reduce((sum, r) => sum + r.progressToGoal, 0) / totals.length).toFixed(2));
 
     primaryTotalRow = {
       ...primaryTotalRow,

@@ -62,6 +62,8 @@ export function generateEmailHTML({
       ? "padding: 14px 10px; font-size: 13px; font-weight: bold; text-align: center; color: #1C3A32;"
       : `padding: 12px 10px; font-size: 13px; text-align: center; color: ${isZero ? "#cccccc" : "#333333"};`;
 
+    const firstHalfAttachRateStyle = valueStyle + (isTotal ? " border-left: 1px solid #a8cfc2;" : " border-left: 1px solid #dce9f5;");
+
     // Dynamic progress cell coloring
     const isProgZero = row.progressToGoal === 0;
     const isProgPos = row.progressToGoal > 0;
@@ -76,7 +78,7 @@ export function generateEmailHTML({
         <td style="${valueStyle}">${row.totalFundedOPLoans === 0 ? '<span style="color:#cccccc">0</span>' : row.totalFundedOPLoans}</td>
         <td style="${valueStyle}">${row.totalBuysideDeals === 0 ? '<span style="color:#cccccc">0</span>' : row.totalBuysideDeals}</td>
         <td style="${valueStyle}">${row.attachRate === 0 ? '<span style="color:#cccccc">0%</span>' : row.attachRate.toFixed(2) + '%'}</td>
-        <td style="${valueStyle}">${row.firstHalfAttachRate === 0 ? '<span style="color:#cccccc">0%</span>' : row.firstHalfAttachRate.toFixed(2) + '%'}</td>
+        <td style="${firstHalfAttachRateStyle}">${row.firstHalfAttachRate === 0 ? '<span style="color:#cccccc">0%</span>' : row.firstHalfAttachRate.toFixed(2) + '%'}</td>
         <td style="${valueStyle}">${row.firstHalfTarget === 0 ? '<span style="color:#cccccc">0%</span>' : row.firstHalfTarget.toFixed(2) + '%'}</td>
         <td style="padding: ${isTotal ? '14px 14px' : '12px 14px'}; font-size: 13px; font-weight: bold; text-align: center; color: ${progressColor};">${progressText}</td>
       </tr>
@@ -178,7 +180,7 @@ export function generateEmailHTML({
                         <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;">OP LOANS</th>
                         <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;">BUYSIDE DEALS</th>
                         <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;">ATTACH RATE</th>
-                        <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;">1H RATE</th>
+                        <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; border-left: 1px solid rgba(255,255,255,0.2);">1H RATE</th>
                         <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase;">1H TARGET</th>
                         <th style="padding: 14px 10px; text-align: center; font-size: 12px; font-weight: bold; letter-spacing: 0.8px; text-transform: uppercase; border-top-right-radius: 6px; border-bottom-right-radius: 0;">PROGRESS (PP)</th>
                       </tr>
