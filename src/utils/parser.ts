@@ -200,12 +200,11 @@ export function getStreetName(addressStr: string): string {
 export function resolveOfficeNames(rawOfficeNames: string[]): Record<string, string> {
   const result: Record<string, string> = {};
   
-  const parsedInfos = rawOfficeNames.map(rawName => {
+  // Deduplicate raw names for counting base counts
+  const uniqueRawNames = Array.from(new Set(rawOfficeNames.map(n => n.trim()).filter(Boolean)));
+
+  const parsedUniqueInfos = uniqueRawNames.map(rawName => {
     const trimmed = rawName.trim();
-    if (!trimmed) {
-      return { rawName, baseOfficeName: "", streetName: "" };
-    }
-    
     if (trimmed.toLowerCase().includes("total")) {
       return { rawName, baseOfficeName: trimmed, streetName: "" };
     }
@@ -238,29 +237,36 @@ export function resolveOfficeNames(rawOfficeNames: string[]): Record<string, str
   });
 
   const baseCounts: Record<string, number> = {};
-  parsedInfos.forEach(info => {
+  parsedUniqueInfos.forEach(info => {
     if (info.baseOfficeName && !info.baseOfficeName.toLowerCase().includes("total")) {
       const lower = info.baseOfficeName.toLowerCase();
       baseCounts[lower] = (baseCounts[lower] || 0) + 1;
     }
   });
 
-  parsedInfos.forEach(info => {
+  const resolvedUnique: Record<string, string> = {};
+  parsedUniqueInfos.forEach(info => {
     if (!info.baseOfficeName) {
-      result[info.rawName] = "";
+      resolvedUnique[info.rawName] = "";
       return;
     }
     if (info.baseOfficeName.toLowerCase().includes("total")) {
-      result[info.rawName] = info.baseOfficeName;
+      resolvedUnique[info.rawName] = info.baseOfficeName;
       return;
     }
 
     const lowerBase = info.baseOfficeName.toLowerCase();
     if (baseCounts[lowerBase] > 1 && info.streetName) {
-      result[info.rawName] = `${info.baseOfficeName} - ${info.streetName}`;
+      resolvedUnique[info.rawName] = `${info.baseOfficeName} - ${info.streetName}`;
     } else {
-      result[info.rawName] = info.baseOfficeName;
+      resolvedUnique[info.rawName] = info.baseOfficeName;
     }
+  });
+
+  // Populate the final result map for all original raw office names
+  rawOfficeNames.forEach(rawName => {
+    const trimmed = rawName.trim();
+    result[rawName] = resolvedUnique[trimmed] || trimmed;
   });
 
   return result;
@@ -363,6 +369,7 @@ export function mapMonthlyRows(
                                 (r.originalRegion && r.originalRegion.toLowerCase().includes("referral directors"));
     return (
       officeLower !== "" &&
+      officeLower !== "n/a" &&
       regionLower !== "" &&
       officeLower !== regionLower &&
       officeLower !== rawRegionLower &&
@@ -414,6 +421,7 @@ export function mapYTDRows(
                                 (r.originalRegion && r.originalRegion.toLowerCase().includes("referral directors"));
     return (
       officeLower !== "" &&
+      officeLower !== "n/a" &&
       regionLower !== "" &&
       officeLower !== regionLower &&
       officeLower !== rawRegionLower &&
